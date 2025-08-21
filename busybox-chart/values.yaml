@@ -1,22 +1,23 @@
 multiNamespace:
   # List of namespaces to deploy to
   namespaces:
-    - name: "test-namespace1"
-    - name: "test-namespace2" 
-    - name: "test-namespace3"
+    - name: "isolation-testing-namespace1"
+    - name: "isolation-testing-namespace2" 
+    - name: "isolation-testing-namespace3"
 
 # Global settings that apply to all namespaces
 global:
   replicaCount: 2
-  
+
+# Things that are overrideable by namespace - replicaCount, nodeSelector, affinity, tolerations
 namespaceOverrides:
-  test-namespace1:
+  isolation-testing-namespace1:
     replicaCount: 2
     # Example: Run on specific node type
     nodeSelector:
       disktype: ssd
       zone: us-west1-a
-  test-namespace2:
+  isolation-testing-namespace2:
     replicaCount: 5
     # Example: Use affinity to prefer certain nodes
     affinity:
@@ -29,7 +30,7 @@ namespaceOverrides:
               operator: In
               values:
               - us-west1-b
-  test-namespace3:
+  isolation-testing-namespace3:
     replicaCount: 10
     # Example: Use tolerations to allow scheduling on tainted nodes
     tolerations:

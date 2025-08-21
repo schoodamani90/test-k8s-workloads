@@ -9,9 +9,30 @@ RELEASE_NAME = my-app
 .PHONY: help
 help:
 	@echo "Available targets:"
-	@echo "  build  - Generate Kubernetes manifests from Helm chart"
-	@echo "  clean  - Remove the build directory"
-	@echo "  help   - Show this help message"
+	@echo ""
+	@echo "📦 Build targets:"
+	@echo "  build           - Generate Kubernetes manifests from Helm chart"
+	@echo "  build-fast      - Build without cleaning first (faster)"
+	@echo "  clean           - Remove the build directory"
+	@echo ""
+	@echo "🔍 Validation targets:"
+	@echo "  validate        - Lint and validate the Helm chart"
+	@echo "  show            - Preview what would be generated"
+	@echo ""
+	@echo "🚀 Deployment targets:"
+	@echo "  deploy                - Deploy all resources to Kubernetes"
+	@echo "  deploy-namespaces     - Deploy only namespaces"
+	@echo "  deploy-services       - Deploy only services"  
+	@echo "  deploy-deployments    - Deploy only deployments"
+	@echo "  deploy-ordered        - Deploy in order (ns→svc→deploy)"
+	@echo ""
+	@echo "🗑️  Cleanup targets:"
+	@echo "  undeploy              - Remove all resources from Kubernetes"
+	@echo "  undeploy-deployments  - Remove only deployments"
+	@echo "  undeploy-services     - Remove only services"
+	@echo "  undeploy-namespaces   - Remove only namespaces (⚠️  removes everything)"
+	@echo ""
+	@echo "  help            - Show this help message"
 
 # Clean target - removes the build directory
 .PHONY: clean
@@ -60,9 +81,56 @@ deploy: build
 	kubectl apply -f $(BUILD_DIR)/busybox-chart/templates/
 	@echo "✅ Deployment complete"
 
+# Deploy only namespaces
+.PHONY: deploy-namespaces
+deploy-namespaces: build
+	@echo "🚀 Deploying namespaces to Kubernetes..."
+	kubectl apply -f $(BUILD_DIR)/busybox-chart/templates/namespace.yaml
+	@echo "✅ Namespaces deployed"
+
+# Deploy only services
+.PHONY: deploy-services
+deploy-services: build
+	@echo "🚀 Deploying services to Kubernetes..."
+	kubectl apply -f $(BUILD_DIR)/busybox-chart/templates/service.yaml
+	@echo "✅ Services deployed"
+
+# Deploy only deployments
+.PHONY: deploy-deployments
+deploy-deployments: build
+	@echo "🚀 Deploying deployments to Kubernetes..."
+	kubectl apply -f $(BUILD_DIR)/busybox-chart/templates/deployment.yaml
+	@echo "✅ Deployments deployed"
+
+# Deploy in order (namespaces first, then services, then deployments)
+.PHONY: deploy-ordered
+deploy-ordered: deploy-namespaces deploy-services deploy-deployments
+	@echo "✅ All resources deployed in order"
+
 # Remove resources from Kubernetes
 .PHONY: undeploy
 undeploy:
 	@echo "🗑️  Removing resources from Kubernetes..."
 	kubectl delete -f $(BUILD_DIR)/busybox-chart/templates/ --ignore-not-found=true
 	@echo "✅ Resources removed"
+
+# Remove only deployments
+.PHONY: undeploy-deployments
+undeploy-deployments:
+	@echo "🗑️  Removing deployments from Kubernetes..."
+	kubectl delete -f $(BUILD_DIR)/busybox-chart/templates/deployment.yaml --ignore-not-found=true
+	@echo "✅ Deployments removed"
+
+# Remove only services
+.PHONY: undeploy-services
+undeploy-services:
+	@echo "🗑️  Removing services from Kubernetes..."
+	kubectl delete -f $(BUILD_DIR)/busybox-chart/templates/service.yaml --ignore-not-found=true
+	@echo "✅ Services removed"
+
+# Remove only namespaces (this will remove everything in those namespaces)
+.PHONY: undeploy-namespaces
+undeploy-namespaces:
+	@echo "🗑️  Removing namespaces from Kubernetes..."
+	kubectl delete -f $(BUILD_DIR)/busybox-chart/templates/namespace.yaml --ignore-not-found=true
+	@echo "✅ Namespaces removed"

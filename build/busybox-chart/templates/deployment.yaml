@@ -3,29 +3,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-app-busybox-chart-sctest_namespace1
-  namespace: sctest_namespace1
+  name: isolation-testing-namespace1-busybox-chart
+  namespace: isolation-testing-namespace1
   labels:
     helm.sh/chart: busybox-chart-0.1.0
     app.kubernetes.io/name: busybox-chart
-    app.kubernetes.io/instance: my-app
     app.kubernetes.io/managed-by: Helm
-    busybox-chart.namespace: sctest_namespace1
+    busybox-chart.namespace: isolation-testing-namespace1
 spec:
   replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/name: busybox-chart
-      app.kubernetes.io/instance: my-app
-      busybox-chart.namespace: sctest_namespace1
+      busybox-chart.namespace: isolation-testing-namespace1
   template:
     metadata:
       labels:
         helm.sh/chart: busybox-chart-0.1.0
         app.kubernetes.io/name: busybox-chart
-        app.kubernetes.io/instance: my-app
         app.kubernetes.io/managed-by: Helm
-        busybox-chart.namespace: sctest_namespace1
+        busybox-chart.namespace: isolation-testing-namespace1
     spec:
       containers:
         - name: busybox-chart
@@ -52,18 +49,18 @@ spec:
             timeoutSeconds: 1
             failureThreshold: 1
             successThreshold: 1
-            resources:
-              requests:
-                cpu: 200m
-                memory: 256Mi
-              limits:
-                cpu: 500m
-                memory: 512Mi
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           env:
             - name: NAMESPACE
-              value: sctest_namespace1
+              value: isolation-testing-namespace1
             - name: DEPLOYMENT_NAME
-              value: my-app-busybox-chart-sctest_namespace1
+              value: isolation-testing-namespace1-busybox-chart
       nodeSelector:
         disktype: ssd
         zone: us-west1-a
@@ -76,29 +73,26 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-app-busybox-chart-sctest_namespace2
-  namespace: sctest_namespace2
+  name: isolation-testing-namespace2-busybox-chart
+  namespace: isolation-testing-namespace2
   labels:
     helm.sh/chart: busybox-chart-0.1.0
     app.kubernetes.io/name: busybox-chart
-    app.kubernetes.io/instance: my-app
     app.kubernetes.io/managed-by: Helm
-    busybox-chart.namespace: sctest_namespace2
+    busybox-chart.namespace: isolation-testing-namespace2
 spec:
   replicas: 5
   selector:
     matchLabels:
       app.kubernetes.io/name: busybox-chart
-      app.kubernetes.io/instance: my-app
-      busybox-chart.namespace: sctest_namespace2
+      busybox-chart.namespace: isolation-testing-namespace2
   template:
     metadata:
       labels:
         helm.sh/chart: busybox-chart-0.1.0
         app.kubernetes.io/name: busybox-chart
-        app.kubernetes.io/instance: my-app
         app.kubernetes.io/managed-by: Helm
-        busybox-chart.namespace: sctest_namespace2
+        busybox-chart.namespace: isolation-testing-namespace2
     spec:
       containers:
         - name: busybox-chart
@@ -125,18 +119,18 @@ spec:
             timeoutSeconds: 1
             failureThreshold: 1
             successThreshold: 1
-            resources:
-              requests:
-                cpu: 200m
-                memory: 256Mi
-              limits:
-                cpu: 500m
-                memory: 512Mi
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           env:
             - name: NAMESPACE
-              value: sctest_namespace2
+              value: isolation-testing-namespace2
             - name: DEPLOYMENT_NAME
-              value: my-app-busybox-chart-sctest_namespace2
+              value: isolation-testing-namespace2-busybox-chart
       nodeSelector:
         {}
       affinity:
@@ -156,29 +150,26 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-app-busybox-chart-sctest_namespace3
-  namespace: sctest_namespace3
+  name: isolation-testing-namespace3-busybox-chart
+  namespace: isolation-testing-namespace3
   labels:
     helm.sh/chart: busybox-chart-0.1.0
     app.kubernetes.io/name: busybox-chart
-    app.kubernetes.io/instance: my-app
     app.kubernetes.io/managed-by: Helm
-    busybox-chart.namespace: sctest_namespace3
+    busybox-chart.namespace: isolation-testing-namespace3
 spec:
   replicas: 10
   selector:
     matchLabels:
       app.kubernetes.io/name: busybox-chart
-      app.kubernetes.io/instance: my-app
-      busybox-chart.namespace: sctest_namespace3
+      busybox-chart.namespace: isolation-testing-namespace3
   template:
     metadata:
       labels:
         helm.sh/chart: busybox-chart-0.1.0
         app.kubernetes.io/name: busybox-chart
-        app.kubernetes.io/instance: my-app
         app.kubernetes.io/managed-by: Helm
-        busybox-chart.namespace: sctest_namespace3
+        busybox-chart.namespace: isolation-testing-namespace3
     spec:
       containers:
         - name: busybox-chart
@@ -205,18 +196,18 @@ spec:
             timeoutSeconds: 1
             failureThreshold: 1
             successThreshold: 1
-            resources:
-              requests:
-                cpu: 200m
-                memory: 256Mi
-              limits:
-                cpu: 500m
-                memory: 512Mi
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           env:
             - name: NAMESPACE
-              value: sctest_namespace3
+              value: isolation-testing-namespace3
             - name: DEPLOYMENT_NAME
-              value: my-app-busybox-chart-sctest_namespace3
+              value: isolation-testing-namespace3-busybox-chart
       nodeSelector:
         instance-type: high-memory
       affinity:

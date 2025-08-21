@@ -1,0 +1,39 @@
+---
+# Source: busybox-chart/templates/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sctest_namespace1
+  labels:
+    helm.sh/chart: busybox-chart-0.1.0
+    app.kubernetes.io/name: busybox-chart
+    app.kubernetes.io/instance: my-app
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    helm.sh/chart: busybox-chart-0.1.0
+---
+# Source: busybox-chart/templates/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sctest_namespace2
+  labels:
+    helm.sh/chart: busybox-chart-0.1.0
+    app.kubernetes.io/name: busybox-chart
+    app.kubernetes.io/instance: my-app
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    helm.sh/chart: busybox-chart-0.1.0
+---
+# Source: busybox-chart/templates/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sctest_namespace3
+  labels:
+    helm.sh/chart: busybox-chart-0.1.0
+    app.kubernetes.io/name: busybox-chart
+    app.kubernetes.io/instance: my-app
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    helm.sh/chart: busybox-chart-0.1.0

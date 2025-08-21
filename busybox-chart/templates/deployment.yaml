@@ -1,0 +1,78 @@
+{{- range .Values.multiNamespace.namespaces }}
+{{- $namespace := .name }}
+{{- $ctx := include "busybox-chart.namespaceContext" (dict "namespace" $namespace "root" $) | fromYaml }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "busybox-chart.namespacedName" (dict "namespace" $namespace "root" $) }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "busybox-chart.labels" $ | nindent 4 }}
+    busybox-chart.namespace: {{ $namespace }}
+spec:
+  {{- $replicaCount := include "busybox-chart.replicaCount" (dict "namespace" $namespace "root" $) }}
+  replicas: {{ $replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "busybox-chart.selectorLabels" $ | nindent 6 }}
+      busybox-chart.namespace: {{ $namespace }}
+  template:
+    metadata:
+      labels:
+        {{- include "busybox-chart.labels" $ | nindent 8 }}
+        busybox-chart.namespace: {{ $namespace }}
+    spec:
+      containers:
+        - name: {{ $.Chart.Name }}
+          image: "998571911837.dkr.ecr.us-east-1.amazonaws.com/dockerhub/busybox:1.31.1"
+          command: ["tail", "-f", "/dev/null"]
+          livenessProbe:
+            exec:
+              command:
+              - /bin/sh  
+              - -c
+              - "pgrep tail || exit 1"
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - "ps aux | grep 'tail -f /dev/null' | grep -v grep"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 1
+            failureThreshold: 1
+            successThreshold: 1
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+          env:
+            - name: NAMESPACE
+              value: {{ $namespace }}
+            - name: DEPLOYMENT_NAME
+              value: {{ include "busybox-chart.namespacedName" (dict "namespace" $namespace "root" $) }}
+      {{- $nodeSelector := include "busybox-chart.nodeSelector" (dict "namespace" $namespace "root" $) }}
+      {{- if $nodeSelector }}
+      nodeSelector:
+        {{- $nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- $affinity := include "busybox-chart.affinity" (dict "namespace" $namespace "root" $) }}
+      {{- if $affinity }}
+      affinity:
+        {{- $affinity | nindent 8 }}
+      {{- end }}
+      {{- $tolerations := include "busybox-chart.tolerations" (dict "namespace" $namespace "root" $) }}
+      {{- if $tolerations }}
+      tolerations:
+        {{- $tolerations | nindent 8 }}
+      {{- end }}
+{{- end }}

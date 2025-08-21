@@ -1,0 +1,72 @@
+---
+# Source: busybox-chart/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app-busybox-chart-sctest_namespace1
+  namespace: sctest_namespace1
+  labels:
+    helm.sh/chart: busybox-chart-0.1.0
+    app.kubernetes.io/name: busybox-chart
+    app.kubernetes.io/instance: my-app
+    app.kubernetes.io/managed-by: Helm
+    busybox-chart.namespace: sctest_namespace1
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: busybox-chart
+    app.kubernetes.io/instance: my-app
+    busybox-chart.namespace: sctest_namespace1
+---
+# Source: busybox-chart/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app-busybox-chart-sctest_namespace2
+  namespace: sctest_namespace2
+  labels:
+    helm.sh/chart: busybox-chart-0.1.0
+    app.kubernetes.io/name: busybox-chart
+    app.kubernetes.io/instance: my-app
+    app.kubernetes.io/managed-by: Helm
+    busybox-chart.namespace: sctest_namespace2
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: busybox-chart
+    app.kubernetes.io/instance: my-app
+    busybox-chart.namespace: sctest_namespace2
+---
+# Source: busybox-chart/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app-busybox-chart-sctest_namespace3
+  namespace: sctest_namespace3
+  labels:
+    helm.sh/chart: busybox-chart-0.1.0
+    app.kubernetes.io/name: busybox-chart
+    app.kubernetes.io/instance: my-app
+    app.kubernetes.io/managed-by: Helm
+    busybox-chart.namespace: sctest_namespace3
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: busybox-chart
+    app.kubernetes.io/instance: my-app
+    busybox-chart.namespace: sctest_namespace3

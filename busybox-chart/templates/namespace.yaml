@@ -1,0 +1,11 @@
+{{- range .Values.multiNamespace.namespaces }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "busybox-chart.labels" $ | nindent 4 }}
+  annotations:
+    helm.sh/chart: {{ include "busybox-chart.chart" $ }}
+{{- end }}

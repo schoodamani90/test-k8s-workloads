@@ -1,0 +1,55 @@
+multiNamespace:
+  # List of namespaces to deploy to
+  namespaces:
+    - name: "test-namespace1"
+    - name: "test-namespace2" 
+    - name: "test-namespace3"
+
+# Global settings that apply to all namespaces
+global:
+  replicaCount: 2
+  
+namespaceOverrides:
+  test-namespace1:
+    replicaCount: 2
+    # Example: Run on specific node type
+    nodeSelector:
+      disktype: ssd
+      zone: us-west1-a
+  test-namespace2:
+    replicaCount: 5
+    # Example: Use affinity to prefer certain nodes
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+            - key: zone
+              operator: In
+              values:
+              - us-west1-b
+  test-namespace3:
+    replicaCount: 10
+    # Example: Use tolerations to allow scheduling on tainted nodes
+    tolerations:
+    - key: "high-performance"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+    # Can also override multiple settings together
+    nodeSelector:
+      instance-type: "high-memory"
+
+# This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
+service:
+  # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+  type: ClusterIP
+  # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
+  port: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

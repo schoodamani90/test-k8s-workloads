@@ -1,0 +1,228 @@
+---
+# Source: busybox-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-busybox-chart-sctest_namespace1
+  namespace: sctest_namespace1
+  labels:
+    helm.sh/chart: busybox-chart-0.1.0
+    app.kubernetes.io/name: busybox-chart
+    app.kubernetes.io/instance: my-app
+    app.kubernetes.io/managed-by: Helm
+    busybox-chart.namespace: sctest_namespace1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: busybox-chart
+      app.kubernetes.io/instance: my-app
+      busybox-chart.namespace: sctest_namespace1
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: busybox-chart-0.1.0
+        app.kubernetes.io/name: busybox-chart
+        app.kubernetes.io/instance: my-app
+        app.kubernetes.io/managed-by: Helm
+        busybox-chart.namespace: sctest_namespace1
+    spec:
+      containers:
+        - name: busybox-chart
+          image: "998571911837.dkr.ecr.us-east-1.amazonaws.com/dockerhub/busybox:1.31.1"
+          command: ["tail", "-f", "/dev/null"]
+          livenessProbe:
+            exec:
+              command:
+              - /bin/sh  
+              - -c
+              - "pgrep tail || exit 1"
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - "ps aux | grep 'tail -f /dev/null' | grep -v grep"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 1
+            failureThreshold: 1
+            successThreshold: 1
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+          env:
+            - name: NAMESPACE
+              value: sctest_namespace1
+            - name: DEPLOYMENT_NAME
+              value: my-app-busybox-chart-sctest_namespace1
+      nodeSelector:
+        disktype: ssd
+        zone: us-west1-a
+      affinity:
+        {}
+      tolerations:
+        []
+---
+# Source: busybox-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-busybox-chart-sctest_namespace2
+  namespace: sctest_namespace2
+  labels:
+    helm.sh/chart: busybox-chart-0.1.0
+    app.kubernetes.io/name: busybox-chart
+    app.kubernetes.io/instance: my-app
+    app.kubernetes.io/managed-by: Helm
+    busybox-chart.namespace: sctest_namespace2
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: busybox-chart
+      app.kubernetes.io/instance: my-app
+      busybox-chart.namespace: sctest_namespace2
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: busybox-chart-0.1.0
+        app.kubernetes.io/name: busybox-chart
+        app.kubernetes.io/instance: my-app
+        app.kubernetes.io/managed-by: Helm
+        busybox-chart.namespace: sctest_namespace2
+    spec:
+      containers:
+        - name: busybox-chart
+          image: "998571911837.dkr.ecr.us-east-1.amazonaws.com/dockerhub/busybox:1.31.1"
+          command: ["tail", "-f", "/dev/null"]
+          livenessProbe:
+            exec:
+              command:
+              - /bin/sh  
+              - -c
+              - "pgrep tail || exit 1"
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - "ps aux | grep 'tail -f /dev/null' | grep -v grep"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 1
+            failureThreshold: 1
+            successThreshold: 1
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+          env:
+            - name: NAMESPACE
+              value: sctest_namespace2
+            - name: DEPLOYMENT_NAME
+              value: my-app-busybox-chart-sctest_namespace2
+      nodeSelector:
+        {}
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: zone
+                operator: In
+                values:
+                - us-west1-b
+            weight: 100
+      tolerations:
+        []
+---
+# Source: busybox-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-busybox-chart-sctest_namespace3
+  namespace: sctest_namespace3
+  labels:
+    helm.sh/chart: busybox-chart-0.1.0
+    app.kubernetes.io/name: busybox-chart
+    app.kubernetes.io/instance: my-app
+    app.kubernetes.io/managed-by: Helm
+    busybox-chart.namespace: sctest_namespace3
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: busybox-chart
+      app.kubernetes.io/instance: my-app
+      busybox-chart.namespace: sctest_namespace3
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: busybox-chart-0.1.0
+        app.kubernetes.io/name: busybox-chart
+        app.kubernetes.io/instance: my-app
+        app.kubernetes.io/managed-by: Helm
+        busybox-chart.namespace: sctest_namespace3
+    spec:
+      containers:
+        - name: busybox-chart
+          image: "998571911837.dkr.ecr.us-east-1.amazonaws.com/dockerhub/busybox:1.31.1"
+          command: ["tail", "-f", "/dev/null"]
+          livenessProbe:
+            exec:
+              command:
+              - /bin/sh  
+              - -c
+              - "pgrep tail || exit 1"
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - "ps aux | grep 'tail -f /dev/null' | grep -v grep"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 1
+            failureThreshold: 1
+            successThreshold: 1
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+          env:
+            - name: NAMESPACE
+              value: sctest_namespace3
+            - name: DEPLOYMENT_NAME
+              value: my-app-busybox-chart-sctest_namespace3
+      nodeSelector:
+        instance-type: high-memory
+      affinity:
+        {}
+      tolerations:
+        - effect: NoSchedule
+          key: high-performance
+          operator: Equal
+          value: "true"

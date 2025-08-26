@@ -1,9 +1,9 @@
 multiNamespace:
   # List of namespaces to deploy to
   namespaces:
-    - name: "isolation-testing-namespace1"
-    - name: "isolation-testing-namespace2" 
-    - name: "isolation-testing-namespace3"
+    - name: "work-iso-sc-ns1"
+    - name: "work-iso-sc-ns2" 
+    - name: "work-iso-sc-ns3"
 
 # Global settings that apply to all namespaces
 global:
@@ -11,36 +11,36 @@ global:
 
 # Things that are overrideable by namespace - replicaCount, nodeSelector, affinity, tolerations
 namespaceOverrides:
-  isolation-testing-namespace1:
+  work-iso-sc-ns1:
     replicaCount: 2
-    # Example: Run on specific node type
-    nodeSelector:
-      disktype: ssd
-      zone: us-west1-a
-  isolation-testing-namespace2:
+    # # Example: Run on specific node type
+    # nodeSelector:
+    #   disktype: ssd
+    #   zone: us-west1-a
+  work-iso-sc-ns2:
     replicaCount: 5
     # Example: Use affinity to prefer certain nodes
-    affinity:
-      nodeAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 100
-          preference:
-            matchExpressions:
-            - key: zone
-              operator: In
-              values:
-              - us-west1-b
-  isolation-testing-namespace3:
+    # affinity:
+    #   nodeAffinity:
+    #     preferredDuringSchedulingIgnoredDuringExecution:
+    #     - weight: 100
+    #       preference:
+    #         matchExpressions:
+    #         - key: zone
+    #           operator: In
+    #           values:
+    #           - us-west1-b
+  work-iso-sc-ns3:
     replicaCount: 10
     # Example: Use tolerations to allow scheduling on tainted nodes
-    tolerations:
-    - key: "high-performance"
-      operator: "Equal"
-      value: "true"
-      effect: "NoSchedule"
-    # Can also override multiple settings together
-    nodeSelector:
-      instance-type: "high-memory"
+    # tolerations:
+    # - key: "high-performance"
+    #   operator: "Equal"
+    #   value: "true"
+    #   effect: "NoSchedule"
+    # # Can also override multiple settings together
+    # nodeSelector:
+    #   instance-type: "high-memory"
 
 # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:

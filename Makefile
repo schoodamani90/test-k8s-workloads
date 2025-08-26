@@ -78,7 +78,13 @@ show:
 .PHONY: deploy
 deploy: build
 	@echo "🚀 Deploying manifests to Kubernetes..."
-	kubectl apply -f $(BUILD_DIR)/busybox-chart/templates/
+	@echo "📦 Creating namespaces first..."
+	kubectl apply -f $(BUILD_DIR)/busybox-chart/templates/namespace.yaml
+	@echo "⏳ Waiting 5 seconds for namespaces to be ready..."
+	sleep 5
+	@echo "🚀 Deploying remaining resources..."
+	kubectl apply -f $(BUILD_DIR)/busybox-chart/templates/service.yaml
+	kubectl apply -f $(BUILD_DIR)/busybox-chart/templates/deployment.yaml
 	@echo "✅ Deployment complete"
 
 # Deploy only namespaces

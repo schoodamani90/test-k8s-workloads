@@ -3,30 +3,31 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: isolation-testing-namespace1-busybox-chart
-  namespace: isolation-testing-namespace1
+  name: work-iso-sc-ns1-busybox-chart
+  namespace: work-iso-sc-ns1
   labels:
     helm.sh/chart: busybox-chart-0.1.0
     app.kubernetes.io/name: busybox-chart
     app.kubernetes.io/managed-by: Helm
-    busybox-chart.namespace: isolation-testing-namespace1
+    busybox-chart.namespace: work-iso-sc-ns1
 spec:
   replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/name: busybox-chart
-      busybox-chart.namespace: isolation-testing-namespace1
+      busybox-chart.namespace: work-iso-sc-ns1
   template:
     metadata:
       labels:
         helm.sh/chart: busybox-chart-0.1.0
         app.kubernetes.io/name: busybox-chart
         app.kubernetes.io/managed-by: Helm
-        busybox-chart.namespace: isolation-testing-namespace1
+        busybox-chart.namespace: work-iso-sc-ns1
     spec:
       containers:
         - name: busybox-chart
-          image: "998571911837.dkr.ecr.us-east-1.amazonaws.com/dockerhub/busybox:1.31.1"
+          image: "448435121187.dkr.ecr.us-east-1.amazonaws.com/busybox:1.31.1-multiarch"
+          imagePullPolicy: IfNotPresent
           command: ["tail", "-f", "/dev/null"]
           livenessProbe:
             exec:
@@ -58,12 +59,11 @@ spec:
               memory: 512Mi
           env:
             - name: NAMESPACE
-              value: isolation-testing-namespace1
+              value: work-iso-sc-ns1
             - name: DEPLOYMENT_NAME
-              value: isolation-testing-namespace1-busybox-chart
+              value: work-iso-sc-ns1-busybox-chart
       nodeSelector:
-        disktype: ssd
-        zone: us-west1-a
+        {}
       affinity:
         {}
       tolerations:
@@ -73,30 +73,31 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: isolation-testing-namespace2-busybox-chart
-  namespace: isolation-testing-namespace2
+  name: work-iso-sc-ns2-busybox-chart
+  namespace: work-iso-sc-ns2
   labels:
     helm.sh/chart: busybox-chart-0.1.0
     app.kubernetes.io/name: busybox-chart
     app.kubernetes.io/managed-by: Helm
-    busybox-chart.namespace: isolation-testing-namespace2
+    busybox-chart.namespace: work-iso-sc-ns2
 spec:
   replicas: 5
   selector:
     matchLabels:
       app.kubernetes.io/name: busybox-chart
-      busybox-chart.namespace: isolation-testing-namespace2
+      busybox-chart.namespace: work-iso-sc-ns2
   template:
     metadata:
       labels:
         helm.sh/chart: busybox-chart-0.1.0
         app.kubernetes.io/name: busybox-chart
         app.kubernetes.io/managed-by: Helm
-        busybox-chart.namespace: isolation-testing-namespace2
+        busybox-chart.namespace: work-iso-sc-ns2
     spec:
       containers:
         - name: busybox-chart
-          image: "998571911837.dkr.ecr.us-east-1.amazonaws.com/dockerhub/busybox:1.31.1"
+          image: "448435121187.dkr.ecr.us-east-1.amazonaws.com/busybox:1.31.1-multiarch"
+          imagePullPolicy: IfNotPresent
           command: ["tail", "-f", "/dev/null"]
           livenessProbe:
             exec:
@@ -128,21 +129,13 @@ spec:
               memory: 512Mi
           env:
             - name: NAMESPACE
-              value: isolation-testing-namespace2
+              value: work-iso-sc-ns2
             - name: DEPLOYMENT_NAME
-              value: isolation-testing-namespace2-busybox-chart
+              value: work-iso-sc-ns2-busybox-chart
       nodeSelector:
         {}
       affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: zone
-                operator: In
-                values:
-                - us-west1-b
-            weight: 100
+        {}
       tolerations:
         []
 ---
@@ -150,30 +143,31 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: isolation-testing-namespace3-busybox-chart
-  namespace: isolation-testing-namespace3
+  name: work-iso-sc-ns3-busybox-chart
+  namespace: work-iso-sc-ns3
   labels:
     helm.sh/chart: busybox-chart-0.1.0
     app.kubernetes.io/name: busybox-chart
     app.kubernetes.io/managed-by: Helm
-    busybox-chart.namespace: isolation-testing-namespace3
+    busybox-chart.namespace: work-iso-sc-ns3
 spec:
   replicas: 10
   selector:
     matchLabels:
       app.kubernetes.io/name: busybox-chart
-      busybox-chart.namespace: isolation-testing-namespace3
+      busybox-chart.namespace: work-iso-sc-ns3
   template:
     metadata:
       labels:
         helm.sh/chart: busybox-chart-0.1.0
         app.kubernetes.io/name: busybox-chart
         app.kubernetes.io/managed-by: Helm
-        busybox-chart.namespace: isolation-testing-namespace3
+        busybox-chart.namespace: work-iso-sc-ns3
     spec:
       containers:
         - name: busybox-chart
-          image: "998571911837.dkr.ecr.us-east-1.amazonaws.com/dockerhub/busybox:1.31.1"
+          image: "448435121187.dkr.ecr.us-east-1.amazonaws.com/busybox:1.31.1-multiarch"
+          imagePullPolicy: IfNotPresent
           command: ["tail", "-f", "/dev/null"]
           livenessProbe:
             exec:
@@ -205,15 +199,12 @@ spec:
               memory: 512Mi
           env:
             - name: NAMESPACE
-              value: isolation-testing-namespace3
+              value: work-iso-sc-ns3
             - name: DEPLOYMENT_NAME
-              value: isolation-testing-namespace3-busybox-chart
+              value: work-iso-sc-ns3-busybox-chart
       nodeSelector:
-        instance-type: high-memory
+        {}
       affinity:
         {}
       tolerations:
-        - effect: NoSchedule
-          key: high-performance
-          operator: Equal
-          value: "true"
+        []

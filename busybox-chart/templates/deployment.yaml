@@ -25,7 +25,8 @@ spec:
     spec:
       containers:
         - name: {{ $.Chart.Name }}
-          image: "998571911837.dkr.ecr.us-east-1.amazonaws.com/dockerhub/busybox:1.31.1"
+          image: "448435121187.dkr.ecr.us-east-1.amazonaws.com/busybox:1.31.1-multiarch"
+          imagePullPolicy: IfNotPresent
           command: ["tail", "-f", "/dev/null"]
           livenessProbe:
             exec:

@@ -9,10 +9,18 @@ multiNamespace:
 global:
   replicaCount: 2
 
-# Things that are overrideable by namespace - replicaCount, nodeSelector, affinity, tolerations
+# Things that are overrideable by namespace - replicaCount, nodeSelector, affinity, tolerations, topologySpreadConstraints
 namespaceOverrides:
   work-iso-sc-ns1:
-    replicaCount: 2
+    replicaCount: 30
+    # topologySpreadConstraints:
+    # - maxSkew: 1
+    #   topologyKey: topology.kubernetes.io/node
+    #   whenUnsatisfiable: ScheduleAnyway
+    #   labelSelector:
+    #     matchLabels:
+    #       app.kubernetes.io/name: busybox-chart
+    #       busybox-chart.namespace: work-iso-sc-ns1
     # # Example: Run on specific node type
     # nodeSelector:
     #   disktype: ssd
@@ -41,6 +49,15 @@ namespaceOverrides:
     # # Can also override multiple settings together
     # nodeSelector:
     #   instance-type: "high-memory"
+    # # Example: Use topology spread constraints to distribute pods across zones/nodes
+    # topologySpreadConstraints:
+    # - maxSkew: 1
+    #   topologyKey: topology.kubernetes.io/zone
+    #   whenUnsatisfiable: DoNotSchedule
+    #   labelSelector:
+    #     matchLabels:
+    #       app.kubernetes.io/name: busybox-chart
+    #       busybox-chart.namespace: work-iso-sc-ns3
 
 # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:
@@ -54,3 +71,5 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+topologySpreadConstraints: []

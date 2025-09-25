@@ -11,7 +11,7 @@ metadata:
     app.kubernetes.io/managed-by: Helm
     busybox-chart.namespace: work-iso-sc-ns1
 spec:
-  replicas: 2
+  replicas: 30
   selector:
     matchLabels:
       app.kubernetes.io/name: busybox-chart
@@ -67,6 +67,8 @@ spec:
       affinity:
         {}
       tolerations:
+        []
+      topologySpreadConstraints:
         []
 ---
 # Source: busybox-chart/templates/deployment.yaml
@@ -138,6 +140,8 @@ spec:
         {}
       tolerations:
         []
+      topologySpreadConstraints:
+        []
 ---
 # Source: busybox-chart/templates/deployment.yaml
 apiVersion: apps/v1
@@ -207,4 +211,6 @@ spec:
       affinity:
         {}
       tolerations:
+        []
+      topologySpreadConstraints:
         []

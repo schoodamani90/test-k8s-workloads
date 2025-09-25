@@ -121,6 +121,20 @@ Get tolerations for a specific namespace
 {{- end }}
 
 {{/*
+Get topology spread constraints for a specific namespace
+*/}}
+{{- define "busybox-chart.topologySpreadConstraints" -}}
+{{- $namespace := .namespace }}
+{{- $root := .root }}
+{{- $override := index $root.Values.namespaceOverrides $namespace | default dict }}
+{{- if $override.topologySpreadConstraints }}
+{{- toYaml $override.topologySpreadConstraints }}
+{{- else }}
+{{- toYaml $root.Values.topologySpreadConstraints }}
+{{- end }}
+{{- end }}
+
+{{/*
 Generate namespace-specific resource name
 */}}
 {{- define "busybox-chart.namespacedName" -}}

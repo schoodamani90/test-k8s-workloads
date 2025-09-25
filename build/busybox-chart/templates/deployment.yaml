@@ -75,7 +75,7 @@ spec:
               busybox-chart.namespace: work-iso-sc-ns1
           maxSkew: 1
           topologyKey: topology.kubernetes.io/node
-          whenUnsatisfiable: ScheduleAnyway
+          whenUnsatisfiable: DoNotSchedule
 ---
 # Source: busybox-chart/templates/deployment.yaml
 apiVersion: apps/v1

@@ -1,0 +1,5 @@
+replicaCount: 1
+# # Example: Run on specific node type
+# nodeSelector:
+#   disktype: ssd
+#   zone: us-west1-a

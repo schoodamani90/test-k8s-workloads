@@ -1,37 +1,28 @@
-{{- range .Values.multiNamespace.namespaces }}
-{{- $namespace := .name }}
-{{- $ctx := include "busybox-chart.namespaceContext" (dict "namespace" $namespace "root" $) | fromYaml }}
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "busybox-chart.namespacedName" (dict "namespace" $namespace "root" $) }}
-  namespace: {{ $namespace }}
+  name: {{ .Release.Name }}
   labels:
     {{- include "busybox-chart.labels" $ | nindent 4 }}
-    busybox-chart.namespace: {{ $namespace }}
 spec:
-  {{- $replicaCount := include "busybox-chart.replicaCount" (dict "namespace" $namespace "root" $) }}
-  replicas: {{ $replicaCount }}
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       {{- include "busybox-chart.selectorLabels" $ | nindent 6 }}
-      busybox-chart.namespace: {{ $namespace }}
   template:
     metadata:
       labels:
         {{- include "busybox-chart.labels" $ | nindent 8 }}
-        busybox-chart.namespace: {{ $namespace }}
     spec:
       containers:
-        - name: {{ $.Chart.Name }}
+        - name: busybox
           image: "448435121187.dkr.ecr.us-east-1.amazonaws.com/busybox:1.31.1-multiarch"
           imagePullPolicy: IfNotPresent
           command: ["tail", "-f", "/dev/null"]
           livenessProbe:
             exec:
               command:
-              - /bin/sh  
+              - /bin/sh
               - -c
               - "pgrep tail || exit 1"
             initialDelaySeconds: 5
@@ -58,22 +49,18 @@ spec:
               memory: 512Mi
           env:
             - name: NAMESPACE
-              value: {{ $namespace }}
+              value: {{ .Release.Namespace }}
             - name: DEPLOYMENT_NAME
-              value: {{ include "busybox-chart.namespacedName" (dict "namespace" $namespace "root" $) }}
-      {{- $nodeSelector := include "busybox-chart.nodeSelector" (dict "namespace" $namespace "root" $) }}
-      {{- if $nodeSelector }}
+              value: {{ .Release.Name }}
+      {{- if .Values.nodeSelector }}
       nodeSelector:
-        {{- $nodeSelector | nindent 8 }}
+        {{- .Values.nodeSelector | nindent 8 }}
       {{- end }}
-      {{- $affinity := include "busybox-chart.affinity" (dict "namespace" $namespace "root" $) }}
-      {{- if $affinity }}
+      {{- if .Values.affinity }}
       affinity:
-        {{- $affinity | nindent 8 }}
+        {{- .Values.affinity | nindent 8 }}
       {{- end }}
-      {{- $tolerations := include "busybox-chart.tolerations" (dict "namespace" $namespace "root" $) }}
-      {{- if $tolerations }}
+      {{- if .Values.tolerations }}
       tolerations:
-        {{- $tolerations | nindent 8 }}
+        {{- .Values.tolerations | nindent 8 }}
       {{- end }}
-{{- end }}

@@ -1,46 +1,4 @@
-multiNamespace:
-  # List of namespaces to deploy to
-  namespaces:
-    - name: "work-iso-sc-ns1"
-    - name: "work-iso-sc-ns2" 
-    - name: "work-iso-sc-ns3"
-
-# Global settings that apply to all namespaces
-global:
-  replicaCount: 2
-
-# Things that are overrideable by namespace - replicaCount, nodeSelector, affinity, tolerations
-namespaceOverrides:
-  work-iso-sc-ns1:
-    replicaCount: 2
-    # # Example: Run on specific node type
-    # nodeSelector:
-    #   disktype: ssd
-    #   zone: us-west1-a
-  work-iso-sc-ns2:
-    replicaCount: 5
-    # Example: Use affinity to prefer certain nodes
-    # affinity:
-    #   nodeAffinity:
-    #     preferredDuringSchedulingIgnoredDuringExecution:
-    #     - weight: 100
-    #       preference:
-    #         matchExpressions:
-    #         - key: zone
-    #           operator: In
-    #           values:
-    #           - us-west1-b
-  work-iso-sc-ns3:
-    replicaCount: 10
-    # Example: Use tolerations to allow scheduling on tainted nodes
-    # tolerations:
-    # - key: "high-performance"
-    #   operator: "Equal"
-    #   value: "true"
-    #   effect: "NoSchedule"
-    # # Can also override multiple settings together
-    # nodeSelector:
-    #   instance-type: "high-memory"
+replicaCount: 2
 
 # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:

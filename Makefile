@@ -13,6 +13,7 @@ help:
 	@echo "📦 Build targets:"
 	@echo "  build           - Generate Kubernetes manifests from Helm chart"
 	@echo "  build-fast      - Build without cleaning first (faster)"
+	@echo "  values          - Generate values files for all scenarios"
 	@echo "  clean           - Remove the build directory"
 	@echo ""
 	@echo "🔍 Validation targets:"
@@ -74,3 +75,7 @@ install:
 .PHONY: uninstall
 uninstall:
 	./scripts/uninstall.sh
+
+.PHONY: values
+values:
+	./scripts/generate-values.py

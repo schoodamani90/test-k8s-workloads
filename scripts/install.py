@@ -32,23 +32,35 @@ def parse_args():
     parser.add_argument("scenario", type=str, help="The name of the scenario to install", choices=get_scenarios())
     parser.add_argument("--uninstall", action="store_true", help="Uninstall the scenario instead of installing it")
     parser.add_argument("--debug", action="store_true", help="Debug mode")
-    return parser.parse_args()
+    parser.add_argument("--dry-run", action="store_true", help="Do a dry run")
+    parser.add_argument("--render-locally", action="store_true", help="Render the templates locally")
+
+    args = parser.parse_args()
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+    scenario_dir = f"{VALUES_DIR}/{args.scenario}"
+    if not os.path.exists(scenario_dir):
+        parser.error(f"Scenario directory '{scenario_dir}' does not exist")
+
+    values_pattern = f"{VALUES_DIR}/{args.scenario}/*.yaml"
+    values_files = glob.glob(values_pattern)
+
+    if not values_files:
+        parser.error(f"No .yaml files found in {scenario_dir}")
+
+    return args, values_files
+
+def get_scenarios():
+    try:
+        return sorted(os.listdir(VALUES_DIR))
+    except FileNotFoundError:
+        logger.error("No scenarios found")
+        sys.exit(1)
 
 def main():
 
-    args = parse_args()
-
-    if args.debug:
-        logger.setLevel(logging.DEBUG)
-
-    scenario_name = args.scenario
-
-    logger.info(f"{'Uninstalling' if args.uninstall else 'Installing'} {scenario_name}")
-
-    scenario_dir = f"{VALUES_DIR}/{scenario_name}"
-    if not os.path.exists(scenario_dir):
-        logger.error(f"Scenario directory '{scenario_dir}' does not exist")
-        sys.exit(1)
+    args, values_files = parse_args()
+    logger.info(f"{'Uninstalling' if args.uninstall else 'Installing'} {args.scenario}")
 
     config.load_kube_config()
     # Safety check we're on the right cluster
@@ -59,41 +71,15 @@ def main():
         logger.error("Not using the expected context. scc to cosmos-dev-cosmos")
         sys.exit(1)
 
+    if args.uninstall:
+        uninstall_scenario(values_files, dry_run=args.dry_run)
+    else:
+        install_scenario(values_files, dry_run=args.dry_run, render_locally=args.render_locally)
+
+def install_scenario(values_files: List[str], dry_run: bool=False, render_locally: bool=False, debug: bool=False) -> List[str]:
+
     logger.info(f"Cluster measurements before: {gather_cluster_measurements()}")
 
-    # Process each values file
-    values_pattern = f"{VALUES_DIR}/{scenario_name}/*.yaml"
-    values_files = glob.glob(values_pattern)
-
-    if not values_files:
-        logger.error(f"No .yaml files found in {scenario_dir}")
-        sys.exit(1)
-
-    if args.uninstall:
-        uninstall_scenario(values_files)
-    else:
-        install_scenario(values_files, args.debug)
-
-
-    logger.info(f"Cluster measurements after: {gather_cluster_measurements()}")
-
-def run_command(cmd, check=True, capture_output=True, text=True):
-    """Run a shell command and return the result"""
-    try:
-        result = subprocess.run(cmd, shell=True, check=check, capture_output=capture_output, text=text)
-        return result
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error running command '{cmd}': {e}")
-        sys.exit(1)
-
-def get_scenarios():
-    try:
-        return sorted(os.listdir("build/values/"))
-    except FileNotFoundError:
-        logger.error("No scenarios found")
-        sys.exit(1)
-
-def install_scenario(values_files: List[str], render_locally: bool=False) -> List[str]:
     release_names = []
     for values_file in values_files:
 
@@ -103,37 +89,39 @@ def install_scenario(values_files: List[str], render_locally: bool=False) -> Lis
         release_names.append(release_name)
 
         if render_locally:
-            render_templates(release_name, values_file)
+            render_templates(release_name, values_file, debug=debug)
 
         # Install/upgrade the release
-        install_cmd = f"helm upgrade --install {release_name} ./busybox-chart -f {values_file} --namespace {release_name} --create-namespace --wait --timeout 5m"
+        install_cmd = f"helm upgrade --install {release_name} ./busybox-chart -f {values_file} --namespace {release_name} --create-namespace --wait --timeout 5m {'--dry-run' if dry_run else ''}"
         logger.info(f"Installing {release_name} with {values_file}")
         run_command(install_cmd, capture_output=False)
 
     for release_name in release_names:
         gather_pod_distribution_info(release_name)
 
+    logger.info(f"Cluster measurements after: {gather_cluster_measurements()}")
+
     return release_names
 
-def uninstall_scenario(values_files: List[str]):
+def uninstall_scenario(values_files: List[str], dry_run: bool=False):
     for values_file in values_files:
         filename = os.path.basename(values_file)
         install_id = filename.replace("values-", "").replace(".yaml", "")
         release_name = f"{RELEASE_PREFIX}{install_id}"
 
-        uninstall_cmd = f"helm uninstall {release_name} --namespace {release_name} --ignore-not-found --wait --timeout 5m"
+        uninstall_cmd = f"helm uninstall {release_name} --namespace {release_name} --ignore-not-found --wait --timeout 5m {'--dry-run' if dry_run else ''}"
         logger.info(f"Uninstalling {release_name}")
         run_command(uninstall_cmd, capture_output=False)
 
 
-def render_templates(release_name: str, values_file: str):
+def render_templates(release_name: str, values_file: str, debug: bool=False):
     # Create output directory
     output_dir = f"{TEMPLATES_DIR}/{release_name}"
     os.makedirs(output_dir, exist_ok=True)
 
     # Render template for reference
-    template_cmd = f"helm template {release_name} ./busybox-chart -f {values_file} --namespace {release_name} --create-namespace --output-dir {output_dir} --debug"
-    logger.debug(f"Rendering templates for {release_name}...")
+    template_cmd = f"helm template {release_name} ./busybox-chart -f {values_file} --namespace {release_name} --create-namespace --output-dir {output_dir} {'--debug' if debug else ''}"
+    logger.debug(f"Rendering templates for {release_name}")
     run_command(template_cmd, capture_output=False)
 
 def gather_cluster_measurements() -> dict:
@@ -147,14 +135,13 @@ def gather_pod_distribution_info(namespace: str):
     v1 = client.CoreV1Api()
     pods = v1.list_namespaced_pod(namespace)
     pod_count = len(pods.items)
-    logger.debug(f"Found {pod_count} pods in {namespace}")
-    logger.debug(f"Pods: {pods.items}")
     node_names = [pod.spec.node_name for pod in pods.items]
     node_names_set = set(node_names)
     node_count = len(node_names_set)
-    logger.info(f"{pod_count} pods in {namespace} are spread across {node_count} nodes")
+    logger.info(f"{pod_count} pods in {namespace} are spread across {node_count} nodes ✅")
+    logger.debug(f"Node names: {node_names}")
     if node_count !=  pod_count:
-        logger.warning("At least two pods are sharing a node")
+        logger.warning("At least two pods are sharing a node ❌")
     # TODO more info
 
 def get_node_count():
@@ -169,12 +156,20 @@ def get_node_count():
 
 def handle_api_exception(e: client.exceptions.ApiException):
     if e.status == 401:
-        print("Not authorized to access the cluster")
+        logger.error("Not authorized. Check credentials.")
         sys.exit(1)
     else:
-        print(f"Error getting node count: {e}")
+        logger.error(f"Error getting node count: {e}")
         sys.exit(1)
 
+def run_command(cmd, check=True, capture_output=True, text=True):
+    """Run a shell command and return the result"""
+    try:
+        result = subprocess.run(cmd, shell=True, check=check, capture_output=capture_output, text=text)
+        return result
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error running command '{cmd}': {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -3,7 +3,6 @@
 # Variables
 CHART_DIR = ./busybox-chart
 BUILD_DIR = ./build
-RELEASE_NAME = $(whoami)-N
 
 # Default target
 .PHONY: help
@@ -66,15 +65,7 @@ validate:
 .PHONY: show
 show:
 	@echo "👀 Showing what would be generated..."
-	helm template $(RELEASE_NAME) $(CHART_DIR)
-
-.PHONY: install
-install:
-	./scripts/install.sh
-
-.PHONY: uninstall
-uninstall:
-	./scripts/uninstall.sh
+	helm template $(RELEASE_NAME) $(CHART_DIR) --values build/values/$(scenario_name)/
 
 .PHONY: values
 values:

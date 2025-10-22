@@ -54,13 +54,13 @@ spec:
               value: {{ .Release.Name }}
       {{- if .Values.nodeSelector }}
       nodeSelector:
-        {{- .Values.nodeSelector | nindent 8 }}
+        {{- .Values.nodeSelector | toYaml | nindent 8 }}
       {{- end }}
       {{- if .Values.affinity }}
       affinity:
-        {{- .Values.affinity | nindent 8 }}
+        {{- .Values.affinity | toYaml | nindent 8 }}
       {{- end }}
       {{- if .Values.tolerations }}
       tolerations:
-        {{- .Values.tolerations | nindent 8 }}
+        {{- .Values.tolerations | toYaml | nindent 8 }}
       {{- end }}

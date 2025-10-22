@@ -1,0 +1,18 @@
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - busybox
+        topologyKey: kubernetes.io/hostname
+      weight: 1
+nodeSelector: {}
+replicaCount: 17
+service:
+  port: 80
+  type: ClusterIP
+tolerations: []

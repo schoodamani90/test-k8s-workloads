@@ -1,39 +1,42 @@
 #!/usr/bin/env python3
 
 import argparse
+import concurrent
 import glob
 import json
 import logging
 import os
 import subprocess
 import sys
+import time
 from typing import List
 
 from kubernetes import client, config
+from measurements import gather_cluster_measurements
 
 RELEASE_PREFIX = "bw-"
 COSMOS_DEV_COSMOS_CONTEXT_NAME = "arn:aws:eks:us-east-1:843722649052:cluster/cosmos-dev-cosmos"
 VALUES_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/build/values"
 TEMPLATES_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/build/templates"
 
+MAX_WORKERS = 10
+
 def setup_logging() -> logging.Logger:
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
     logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(
-        '%(asctime)s %(levelname)s: %(message)s'))
-    logger.addHandler(handler)
     return logger
 
 logger = setup_logging()
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Install a scenario")
-    parser.add_argument("scenario", type=str, help="The name of the scenario to install", choices=get_scenarios())
-    parser.add_argument("--uninstall", action="store_true", help="Uninstall the scenario instead of installing it")
-    parser.add_argument("--debug", action="store_true", help="Debug mode")
+    parser.add_argument("scenario", type=str, help="The name of the scenario to install", choices=get_scenarios(parser))
+    parser.add_argument("--debug", "-d", action="store_true", help="Debug mode")
     parser.add_argument("--dry-run", action="store_true", help="Do a dry run")
     parser.add_argument("--render-locally", action="store_true", help="Render the templates locally")
+    install_group = parser.add_mutually_exclusive_group(required=False)
+    install_group.add_argument("--uninstall", "-u", action="store_true", help="Uninstall the scenario instead of installing it")
+    install_group.add_argument("--skip-install", "-s", action="store_true", help="Take measurements without performing the install")
 
     args = parser.parse_args()
     if args.debug:
@@ -50,15 +53,13 @@ def parse_args():
 
     return args, values_files
 
-def get_scenarios():
+def get_scenarios(parser: argparse.ArgumentParser):
     try:
         return sorted(os.listdir(VALUES_DIR))
     except FileNotFoundError:
-        logger.error("No scenarios found")
-        sys.exit(1)
+        parser.error(f"No scenarios found in {VALUES_DIR}")
 
 def main():
-
     args, values_files = parse_args()
     logger.info(f"{'Uninstalling' if args.uninstall else 'Installing'} {args.scenario}")
 
@@ -72,15 +73,18 @@ def main():
         sys.exit(1)
 
     if args.uninstall:
-        uninstall_scenario(values_files, dry_run=args.dry_run)
+        uninstall_scenario(values_files, dry_run=args.dry_run, debug=args.debug)
     else:
-        install_scenario(values_files, dry_run=args.dry_run, render_locally=args.render_locally)
+        install_scenario(values_files, skip_install=args.skip_install, dry_run=args.dry_run, render_locally=args.render_locally, debug=args.debug)
 
-def install_scenario(values_files: List[str], dry_run: bool=False, render_locally: bool=False, debug: bool=False) -> List[str]:
+def install_scenario(values_files: List[str], skip_install: bool=False, dry_run: bool=False, render_locally: bool=False, debug: bool=False) -> List[str]:
 
-    logger.info(f"Cluster measurements before: {gather_cluster_measurements()}")
+    if not skip_install:
+        # Running twice is redundant if we're not installing
+        logger.info(f"Cluster measurements before: {json.dumps(gather_cluster_measurements(), indent=4)}")
 
     release_names = []
+    install_cmds = []
     for values_file in values_files:
 
         filename = os.path.basename(values_file)
@@ -91,27 +95,50 @@ def install_scenario(values_files: List[str], dry_run: bool=False, render_locall
         if render_locally:
             render_templates(release_name, values_file, debug=debug)
 
-        # Install/upgrade the release
-        install_cmd = f"helm upgrade --install {release_name} ./busybox-chart -f {values_file} --namespace {release_name} --create-namespace --wait --timeout 5m {'--dry-run' if dry_run else ''}"
-        logger.info(f"Installing {release_name} with {values_file}")
-        run_command(install_cmd, capture_output=False)
+        if not skip_install:
+            # Install/upgrade the release
+            install_cmd = f"helm upgrade --install {release_name} ./busybox-chart -f {values_file} --namespace {release_name} --create-namespace --wait --timeout 5m {'--debug' if debug else ''}{' --dry-run' if dry_run else ''}"
+            logger.info(f"Installing {release_name} with {values_file}")
+            install_cmds.append(install_cmd)
 
-    for release_name in release_names:
-        gather_pod_distribution_info(release_name)
-
-    logger.info(f"Cluster measurements after: {gather_cluster_measurements()}")
+    if not skip_install:
+        results = []
+        start_time = time.time()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = [
+                executor.submit(run_command, install_cmd, capture_output=debug)
+                for install_cmd in install_cmds
+            ]
+            # Wait for all installs to complete
+            for future in concurrent.futures.as_completed(futures):
+                results.append(future.result())
+        end_time = time.time()
+        logger.info(f"Installation and startup time: {end_time - start_time:.2f}s")
+    logger.info(f"Cluster measurements after: {json.dumps(gather_cluster_measurements(release_names), indent=4)}")
 
     return release_names
 
-def uninstall_scenario(values_files: List[str], dry_run: bool=False):
+def uninstall_scenario(values_files: List[str], dry_run: bool=False, debug: bool=False):
+    uninstall_cmds = []
     for values_file in values_files:
         filename = os.path.basename(values_file)
         install_id = filename.replace("values-", "").replace(".yaml", "")
         release_name = f"{RELEASE_PREFIX}{install_id}"
 
-        uninstall_cmd = f"helm uninstall {release_name} --namespace {release_name} --ignore-not-found --wait --timeout 5m {'--dry-run' if dry_run else ''}"
+        uninstall_cmd = f"helm uninstall {release_name} --namespace {release_name} --ignore-not-found --wait --timeout 5m {'--debug' if debug else ''}{' --dry-run' if dry_run else ''}"
         logger.info(f"Uninstalling {release_name}")
-        run_command(uninstall_cmd, capture_output=False)
+        uninstall_cmds.append(uninstall_cmd)
+
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = [
+            executor.submit(run_command, uninstall_cmd, capture_output=debug)
+            for uninstall_cmd in uninstall_cmds
+        ]
+
+        # Wait for all uninstalls to complete
+        for future in concurrent.futures.as_completed(futures):
+            results.append(future.result())
 
 
 def render_templates(release_name: str, values_file: str, debug: bool=False):
@@ -124,43 +151,6 @@ def render_templates(release_name: str, values_file: str, debug: bool=False):
     logger.debug(f"Rendering templates for {release_name}")
     run_command(template_cmd, capture_output=False)
 
-def gather_cluster_measurements() -> dict:
-    measurements = {}
-    measurements["node_count"] = get_node_count()
-    # TODO more
-    return measurements
-
-def gather_pod_distribution_info(namespace: str):
-    config.load_kube_config()
-    v1 = client.CoreV1Api()
-    pods = v1.list_namespaced_pod(namespace)
-    pod_count = len(pods.items)
-    node_names = [pod.spec.node_name for pod in pods.items]
-    node_names_set = set(node_names)
-    node_count = len(node_names_set)
-    logger.info(f"{pod_count} pods in {namespace} are spread across {node_count} nodes ✅")
-    logger.debug(f"Node names: {node_names}")
-    if node_count !=  pod_count:
-        logger.warning("At least two pods are sharing a node ❌")
-    # TODO more info
-
-def get_node_count():
-    """Get the number of nodes in the cluster"""
-    try:
-        config.load_kube_config()
-        v1 = client.CoreV1Api()
-        nodes = v1.list_node()
-        return len(nodes.items)
-    except client.exceptions.ApiException as e:
-        handle_api_exception(e)
-
-def handle_api_exception(e: client.exceptions.ApiException):
-    if e.status == 401:
-        logger.error("Not authorized. Check credentials.")
-        sys.exit(1)
-    else:
-        logger.error(f"Error getting node count: {e}")
-        sys.exit(1)
 
 def run_command(cmd, check=True, capture_output=True, text=True):
     """Run a shell command and return the result"""

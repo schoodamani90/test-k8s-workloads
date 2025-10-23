@@ -16,6 +16,7 @@ if not os.path.exists(VALUES_DIR):
     os.makedirs(VALUES_DIR)
 
 class Mechanism(Enum):
+    NONE = "none"
     NODE_SELECTOR = "nodeSelector"
     NODE_AFFINITY = "nodeAffinity"
     NODE_ANTI_AFFINITY = "nodeAntiAffinity"
@@ -39,6 +40,14 @@ class Scenario:
 
 
 SCENARIOS = [
+    Scenario(
+        name="C1",
+        mechanism=Mechanism.NONE,
+        nodepool_count=1,
+        workloads_per_nodepool=[10],
+        replicas_min=2,
+        replicas_max=50,
+    ),
     Scenario(
         name="NS1",
         mechanism=Mechanism.NODE_SELECTOR,
@@ -139,7 +148,9 @@ def generate_values(scenario):
             nodepool_name = f"{NODEPOOL_VALUE_PREFIX}{nodepool_index}"
             values['replicaCount'] = replica_count
 
-            if scenario.mechanism == Mechanism.NODE_SELECTOR:
+            if scenario.mechanism == Mechanism.NONE:
+                pass
+            elif scenario.mechanism == Mechanism.NODE_SELECTOR:
                 values['nodeSelector'] = {
                     NODEPOOL_LABEL: nodepool_name
                 }
@@ -186,9 +197,17 @@ def generate_values(scenario):
 
 
 def determine_replica_counts_for_nodepool(scenario, nodepool_index):
+    """
+    @returns a list of replica counts spanning from scenario.replicas_min to scenario.replicas_max, approximately evenly spread. The length of the list is the number of workloads for the nodepool, based on the scenario configuration.
+    """
     workload_count = scenario.workloads_per_nodepool[nodepool_index % len(scenario.workloads_per_nodepool)]
-    step = int((scenario.replicas_max - scenario.replicas_min) / max(workload_count - 1, 1))
-    replica_counts = [int(scenario.replicas_min + i * step) for i in range(workload_count)]
+
+    if workload_count == 1:
+        replica_counts = [scenario.replicas_min]
+    else:
+        # Create evenly distributed replica counts from min to max
+        step = (scenario.replicas_max - scenario.replicas_min) / (workload_count - 1)
+        replica_counts = [int(scenario.replicas_min + i * step) for i in range(workload_count)]
     return replica_counts
 
 

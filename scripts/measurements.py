@@ -38,14 +38,14 @@ class DeploymentDistributionData:
         self.total_pods = sum(pod_counts)
         self.pod_counts = pod_counts
         self.nodes_used = len(pod_counts)
-        self.max_pods = max(pod_counts)
-        self.min_pods = min(pod_counts)
+        self.max_pods = max(pod_counts) if pod_counts else 0
+        self.min_pods = min(pod_counts) if pod_counts else 0
         self.node_skew = self.max_pods - self.min_pods
-        self.mean_pods = statistics.mean(pod_counts)
-        self.median_pods = statistics.median(pod_counts)
-        self.coefficient_of_variation = self._calculate_coefficient_of_variation(pod_counts)
-        self.gini_coefficient = self._calculate_gini_coefficient(pod_counts)
-        self.jain_fairness_index = self._calculate_jain_fairness_index(pod_counts)
+        self.mean_pods = statistics.mean(pod_counts) if pod_counts else 0
+        self.median_pods = statistics.median(pod_counts) if pod_counts else 0
+        self.coefficient_of_variation = self._calculate_coefficient_of_variation(pod_counts) if pod_counts else 0
+        self.gini_coefficient = self._calculate_gini_coefficient(pod_counts) if pod_counts else 0
+        self.jain_fairness_index = self._calculate_jain_fairness_index(pod_counts) if pod_counts else 0
 
     def _calculate_coefficient_of_variation(self, values: List[int]):
         """Calculate Coefficient of Variation
@@ -137,10 +137,15 @@ def get_node_info() -> ClusterNodeData:
         required_free_memory = 256 # MiB
         eligible_nodes = []
         for node in nodes.items:
+
+            # exclude fargate
+            if not node.metadata.name.startswith('fargate-'):
+                eligible_nodes.append(node)
+            # TODO exclude full nodes
             # Getting the unallocated cpu + memory for a node is nontrivial. Kubectl does it client-side when running describe node.
-            #if free_cpu >= required_free_cpu and free_memory >= required_free_memory:
-            # TODO exclude fargate
-            eligible_nodes.append(node)
+            # if free_cpu >= required_free_cpu and free_memory >= required_free_memory:
+            # TODO exclude tainted nodes we don't tolerate
+            # TODO anything else? Probably
 
         cluster_node_info = ClusterNodeData(
             node_count=len(nodes.items),

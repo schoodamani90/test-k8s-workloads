@@ -56,7 +56,7 @@ helm install tenant-app ./busybox-chart -f values-multi-tenant.yaml
 
 # This creates resources in:
 # - tenant-acme (premium tier)
-# - tenant-globex (standard tier) 
+# - tenant-globex (standard tier)
 # - tenant-initech (premium tier)
 ```
 
@@ -202,3 +202,13 @@ The chart uses several helper templates:
 - `busybox-chart.namespacedName`: Generates namespace-specific resource names
 
 This ensures consistent naming and configuration across all resources while allowing per-namespace customization.
+
+# Helm Approach
+
+1. `helm package`, this will create `busybox-chart-0.1.0.tgz`
+2. (Optional) create `values-my-install.yaml` with any tweakes
+3. `helm install my-busybox-install busybox-chart-0.1.0.tgz --values values-my-install.yaml --namespace my-namepsace --create-namespace --atomic`
+4. Repeat steps 2-3 for additional namespaces/experiment permutations.
+5. Cleanup. `helm uninstall my-busybox-install --namespace my-namespace`
+
+See `scripts/install.sh` for concrete examples.

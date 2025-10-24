@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 # among the nodes that got at least one pod.
 INCLUDE_UNUSED_NODES = False
 
+# The second graph can be useful, but can also be confusing when both are shown.
+POD_COUNT_GRAPH = False
+
 class ClusterNodeData:
     """Class representing cluster information."""
     def __init__(self, node_count: int, eligible_node_count: int):
@@ -206,16 +209,18 @@ def print_measurements(measurements: dict):
             distribution_graph.append(f"\tNode {node_index:02d}: {bar} ({pod_count} pods)")
         logger.info(f"[{deployment_name}] Pod distribution graph:\n" + "\n".join(distribution_graph))
 
-        # Alternate visualization. Groups nodes by pod count to show how many nodes have that many pods.
-        # The fewer the bars, and the more grouped together, the better. As that indicates a more even distribution.
-        podcount_to_nodecount = {}
-        for pod_count in distribution_info.pod_counts:
-            podcount_to_nodecount[pod_count] = podcount_to_nodecount.get(pod_count, 0) + 1
+        if POD_COUNT_GRAPH:
+            # Alternate visualization. Groups nodes by pod count to show how many nodes have that many pods.
+            # The fewer the bars, and the more grouped together, the better. As that indicates a more even distribution.
+            podcount_to_nodecount = {}
+            for pod_count in distribution_info.pod_counts:
+                podcount_to_nodecount[pod_count] = podcount_to_nodecount.get(pod_count, 0) + 1
 
-        distribution_graph = []
-        logger.info(f"[{deployment_name}] Node distribution:")
-        for pod_count in sorted(podcount_to_nodecount.keys()):
-            bar = "#" * podcount_to_nodecount[pod_count]
-            distribution_graph.append(f"\t{pod_count:02d} pods: {bar} ({podcount_to_nodecount[pod_count]} nodes)")
-        logger.info(f"[{deployment_name}] Nodes grouped by pod count:\n" + "\n".join(distribution_graph))
+            distribution_graph = []
+            logger.info(f"[{deployment_name}] Node distribution:")
+            for pod_count in sorted(podcount_to_nodecount.keys()):
+                bar = "#" * podcount_to_nodecount[pod_count]
+                distribution_graph.append(f"\t{pod_count:02d} pods: {bar} ({podcount_to_nodecount[pod_count]} nodes)")
+            logger.info(f"[{deployment_name}] Nodes grouped by pod count:\n" + "\n".join(distribution_graph))
+
         logger.info(f"[{deployment_name}] Deployment data: {distribution_info}")

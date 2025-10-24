@@ -1,5 +1,4 @@
 import logging
-import math
 import statistics
 import json
 from typing import List
@@ -7,25 +6,31 @@ from kubernetes import client, config
 
 logger = logging.getLogger(__name__)
 
-class ClusterNodeInfo:
+# While maximal spread is the ideal, for many of these tests it's not possible to use all nodes.
+# It's also diffcult to filter out nodes that are not eligible to run pods due to taints or being fully committed already.
+# So we can include it when we want to see, but for the most part we'll just ignore them and focus on the distribution
+# among the nodes that got at least one pod.
+INCLUDE_UNUSED_NODES = False
+
+class ClusterNodeData:
     """Class representing cluster information."""
     def __init__(self, node_count: int, eligible_node_count: int):
         self.node_count = node_count
         self.eligible_node_count = eligible_node_count
 
     def __str__(self) -> str:
-        """String representation of ClusterNodeInfo."""
+        """String representation of ClusterNodeData."""
         return json.dumps(
             self,
             default=vars,
             sort_keys=False,
             indent=4)
 
-class DeploymentDistributionInfo:
+class DeploymentDistributionData:
     """Class representing deployment information and statistics."""
 
     def __init__(self, pod_counts: List[int]):
-        """Initialize DeploymentDistributionInfo with all statistics.
+        """Initialize DeploymentDistributionData with all statistics.
 
         Args:
             pod_counts: List of pod counts per node
@@ -89,7 +94,7 @@ class DeploymentDistributionInfo:
         return (sum_values**2) / (n * sum_squared)
 
     def _to_dict(self, round_values=False) -> dict:
-        """Convert DeploymentDistributionInfo to dictionary format.
+        """Convert DeploymentDistributionData to dictionary format.
 
         Returns:
             Dictionary representation of the deployment info.
@@ -109,18 +114,18 @@ class DeploymentDistributionInfo:
         }
 
     def __str__(self) -> str:
-        """String representation of DeploymentInfo."""
-        return json.dumps(self._to_dict(round_values=True), separators=(',', ':'))
+        """String representation of DeploymentDistributionData."""
+        return json.dumps(self._to_dict(round_values=True))
 
 def gather_cluster_measurements(release_names: List[str]=[]) -> dict:
     node_info = get_node_info()
     measurements = {
         "nodes": node_info,
-        "distributions": {release_name: gather_deployment_distribution_info(release_name, node_info.node_count) for release_name in release_names},
+        "deployments": {release_name: gather_deployment_distribution_data(release_name, node_info.node_count) for release_name in release_names},
     }
     return measurements
 
-def get_node_info() -> ClusterNodeInfo:
+def get_node_info() -> ClusterNodeData:
     """Get the number of nodes in the cluster"""
     try:
         config.load_kube_config()
@@ -132,13 +137,11 @@ def get_node_info() -> ClusterNodeInfo:
         required_free_memory = 256 # MiB
         eligible_nodes = []
         for node in nodes.items:
-            # need to do unit conversion
-            #free_cpu = node.status.capacity['cpu'] - node.status.allocatable['cpu']
-            #free_memory = node.status.capacity['memory'] - node.status.allocatable['memory']
+            # Getting the unallocated cpu + memory for a node is nontrivial. Kubectl does it client-side when running describe node.
             #if free_cpu >= required_free_cpu and free_memory >= required_free_memory:
                 eligible_nodes.append(node)
 
-        cluster_node_info = ClusterNodeInfo(
+        cluster_node_info = ClusterNodeData(
             node_count=len(nodes.items),
             eligible_node_count=len(eligible_nodes),
         )
@@ -154,12 +157,15 @@ def handle_api_exception(e: client.exceptions.ApiException):
         logger.error(f"Error getting node count: {e}")
         raise Exception("kubernetes API error") from e
 
-def gather_deployment_distribution_info(deployment_name: str, cluster_node_count: int):
+def gather_deployment_distribution_data(deployment_name: str, cluster_node_count: int):
     """
-    Assumes deployment is in its own namespace.
+    Gather data about a deployment's distribution across nodes.
     """
+    logger.info(f"[{deployment_name}] Gathering deployment data")
     config.load_kube_config()
     v1 = client.CoreV1Api()
+    # Assumes deployment is in its own namespace.
+    # FUTURE: Support getting a specific deployment within a namespace that has other pods running
     pods = v1.list_namespaced_pod(deployment_name)
     total_pods = len(pods.items)
 
@@ -168,36 +174,42 @@ def gather_deployment_distribution_info(deployment_name: str, cluster_node_count
         node_to_podcount[pod.spec.node_name] = node_to_podcount.get(pod.spec.node_name, 0) + 1
 
     nodes_used = len(node_to_podcount)
-    logger.info(f"[{deployment_name}] {total_pods} pods spread across {nodes_used} nodes")
+    logger.debug(f"[{deployment_name}] {total_pods} pods spread across {nodes_used} nodes")
     logger.debug(f"[{deployment_name}] Node names: {node_to_podcount.keys()}")
 
     unused_nodes = cluster_node_count - len(node_to_podcount.keys())
     # TODO only include unused nodes if they have room for a pod
-    # Add one zero if there are unused nodes we could've used.
-    # Too many zeroes makes the stats less useful.
-    pod_counts = list(node_to_podcount.values()) + ([0] if unused_nodes and total_pods > cluster_node_count else [])
+    pod_counts = list(node_to_podcount.values()) + ([0] * unused_nodes if (INCLUDE_UNUSED_NODES and unused_nodes and max(node_to_podcount.values()) > 1) else [])
 
-    distribution_info = DeploymentDistributionInfo(pod_counts)
+    distribution_info = DeploymentDistributionData(pod_counts)
 
     logger.debug(f"[{deployment_name}] Deployment distribution: {distribution_info}")
     return distribution_info
 
 def print_measurements(measurements: dict):
     logger.info(f"Cluster info: {measurements['nodes']}")
-    for deployment_name, distribution_info in measurements.get("distributions", {}).items():
-        logger.info(f"[{deployment_name}] Deployment distribution: {distribution_info}")
+    for deployment_name, distribution_info in measurements.get("deployments", {}).items():
+        logger.info(f"[{deployment_name}] {distribution_info.total_pods} pods spread across {distribution_info.nodes_used} nodes")
 
-        logger.info(f"[{deployment_name}] Pod distribution graph:")
+        # Visualization of the deployment's distribution across nodes.
+        # Each node is represented by a bar of the number of pods on the node.
+        # We want to see even bars
+        distribution_graph = []
         for node_index, pod_count in enumerate(sorted(distribution_info.pod_counts)):
             bar = "#" * pod_count
-            logger.info(f"[{deployment_name}]\tNode {node_index:02d}: {bar} ({pod_count} pods)")
+            distribution_graph.append(f"\tNode {node_index:02d}: {bar} ({pod_count} pods)")
+        logger.info(f"[{deployment_name}] Pod distribution graph:\n" + "\n".join(distribution_graph))
 
-        # Alternate visualization
-        # podcount_to_nodecount = {}
-        # for pod_count in node_to_podcount.values():
-        #     podcount_to_nodecount[pod_count] = podcount_to_nodecount.get(pod_count, 0) + 1
+        # Alternate visualization. Groups nodes by pod count to show how many nodes have that many pods.
+        # The fewer the bars, and the more grouped together, the better. As that indicates a more even distribution.
+        podcount_to_nodecount = {}
+        for pod_count in distribution_info.pod_counts:
+            podcount_to_nodecount[pod_count] = podcount_to_nodecount.get(pod_count, 0) + 1
 
-        # logger.info(f"[{namespace}] Node distribution:")
-        # for pod_count in sorted(podcount_to_nodecount.keys()):
-        #     bar = "#" * podcount_to_nodecount[pod_count]
-        #     logger.info(f"[{namespace}]\t{pod_count:02d} pods: {bar} ({podcount_to_nodecount[pod_count]} nodes)")
+        distribution_graph = []
+        logger.info(f"[{deployment_name}] Node distribution:")
+        for pod_count in sorted(podcount_to_nodecount.keys()):
+            bar = "#" * podcount_to_nodecount[pod_count]
+            distribution_graph.append(f"\t{pod_count:02d} pods: {bar} ({podcount_to_nodecount[pod_count]} nodes)")
+        logger.info(f"[{deployment_name}] Nodes grouped by pod count:\n" + "\n".join(distribution_graph))
+        logger.info(f"[{deployment_name}] Deployment data: {distribution_info}")

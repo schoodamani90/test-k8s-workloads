@@ -139,7 +139,8 @@ def get_node_info() -> ClusterNodeData:
         for node in nodes.items:
             # Getting the unallocated cpu + memory for a node is nontrivial. Kubectl does it client-side when running describe node.
             #if free_cpu >= required_free_cpu and free_memory >= required_free_memory:
-                eligible_nodes.append(node)
+            # TODO exclude fargate
+            eligible_nodes.append(node)
 
         cluster_node_info = ClusterNodeData(
             node_count=len(nodes.items),

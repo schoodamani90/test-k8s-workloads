@@ -21,6 +21,7 @@ class Mechanism(Enum):
     NODE_AFFINITY = "nodeAffinity"
     NODE_ANTI_AFFINITY = "nodeAntiAffinity"
     POD_ANTI_AFFINITY = "podAntiAffinity"
+    TOPOLOGY_SPREAD = "topologySpreadConstraint"
 
 class Scenario:
     """
@@ -46,6 +47,14 @@ SCENARIOS = [
         nodepool_count=1,
         workloads_per_nodepool=[10],
         replicas_min=2,
+        replicas_max=50,
+    ),
+    Scenario(
+        name="C2",
+        mechanism=Mechanism.NONE,
+        nodepool_count=1,
+        workloads_per_nodepool=[10],
+        replicas_min=50,
         replicas_max=50,
     ),
     Scenario(
@@ -189,6 +198,8 @@ def generate_values(scenario):
                             }
                         ]}}
 
+            elif scenario.mechanism == Mechanism.TOPOLOGY_SPREAD:
+                pass
             else:
                 raise ValueError(f"Invalid mechanism: {scenario.mechanism.value}")
 

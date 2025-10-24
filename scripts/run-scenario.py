@@ -12,7 +12,7 @@ import time
 from typing import List
 
 from kubernetes import client, config
-from measurements import gather_cluster_measurements
+from measurements import gather_cluster_measurements, print_measurements
 
 RELEASE_PREFIX = "bw-"
 COSMOS_DEV_COSMOS_CONTEXT_NAME = "arn:aws:eks:us-east-1:843722649052:cluster/cosmos-dev-cosmos"
@@ -22,7 +22,7 @@ TEMPLATES_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/
 MAX_WORKERS = 10
 
 def setup_logging() -> logging.Logger:
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
     logger = logging.getLogger(__name__)
     return logger
 
@@ -37,10 +37,13 @@ def parse_args():
     install_group = parser.add_mutually_exclusive_group(required=False)
     install_group.add_argument("--uninstall", "-u", action="store_true", help="Uninstall the scenario instead of installing it")
     install_group.add_argument("--skip-install", "-s", action="store_true", help="Take measurements without performing the install")
+    install_group.add_argument("--print", "-p", action="store_true", default=True, help="Print collected data")
 
     args = parser.parse_args()
     if args.debug:
-        logger.setLevel(logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
+        # kubernetes is WAY too verbose in debug mode
+        logging.getLogger("kubernetes").setLevel(logging.INFO)
     scenario_dir = f"{VALUES_DIR}/{args.scenario}"
     if not os.path.exists(scenario_dir):
         parser.error(f"Scenario directory '{scenario_dir}' does not exist")
@@ -75,18 +78,13 @@ def main():
     if args.uninstall:
         uninstall_scenario(values_files, dry_run=args.dry_run, debug=args.debug)
     else:
-        install_scenario(values_files, skip_install=args.skip_install, dry_run=args.dry_run, render_locally=args.render_locally, debug=args.debug)
+        install_scenario(values_files, skip_install=args.skip_install, dry_run=args.dry_run, render_locally=args.render_locally, debug=args.debug, print=args.print)
 
-def install_scenario(values_files: List[str], skip_install: bool=False, dry_run: bool=False, render_locally: bool=False, debug: bool=False) -> List[str]:
-
-    if not skip_install:
-        # Running twice is redundant if we're not installing
-        logger.info(f"Cluster measurements before: {json.dumps(gather_cluster_measurements(), indent=4)}")
+def install_scenario(values_files: List[str], skip_install: bool=False, dry_run: bool=False, render_locally: bool=False, debug: bool=False, print: bool=True) -> List[str]:
 
     release_names = []
     install_cmds = []
     for values_file in values_files:
-
         filename = os.path.basename(values_file)
         install_id = filename.replace("values-", "").replace(".yaml", "")
         release_name = f"{RELEASE_PREFIX}{install_id}"
@@ -101,6 +99,12 @@ def install_scenario(values_files: List[str], skip_install: bool=False, dry_run:
             logger.info(f"Installing {release_name} with {values_file}")
             install_cmds.append(install_cmd)
 
+    if print:
+        # Do not collect release info since that will be done after install
+        measurements = gather_cluster_measurements()
+        logger.info(f"Cluster measurements before:")
+        print_measurements(measurements)
+
     if not skip_install:
         results = []
         start_time = time.time()
@@ -114,7 +118,11 @@ def install_scenario(values_files: List[str], skip_install: bool=False, dry_run:
                 results.append(future.result())
         end_time = time.time()
         logger.info(f"Installation and startup time: {end_time - start_time:.2f}s")
-    logger.info(f"Cluster measurements after: {json.dumps(gather_cluster_measurements(release_names), indent=4)}")
+
+    if print:
+        measurements = gather_cluster_measurements(release_names)
+        logger.info(f"Cluster measurements after:")
+        print_measurements(measurements)
 
     return release_names
 

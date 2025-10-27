@@ -16,6 +16,12 @@ INCLUDE_UNUSED_NODES = False
 POD_COUNT_GRAPH = False
 
 class ClusterNodeData:
+
+    @staticmethod
+    def from_dict(data: dict) -> 'ClusterNodeData':
+        """Create ClusterNodeData from dictionary format."""
+        return ClusterNodeData(node_count=data['node_count'], eligible_node_count=data['eligible_node_count'])
+
     """Class representing cluster information."""
     def __init__(self, node_count: int, eligible_node_count: int):
         self.node_count = node_count
@@ -34,6 +40,14 @@ class ClusterNodeData:
 
 class DeploymentDistributionData:
     """Class representing deployment information and statistics."""
+
+    @staticmethod
+    def from_dict(data: dict) -> 'DeploymentDistributionData':
+        """Create DeploymentDistributionData from dictionary format."""
+        # This technically recalculates all the statistics rather than reading them exactly from the dictionary,
+        # if present. That would be absolutely cause some obscure floating point error if this was used in a more
+        # complex system, but for our purposes it's fine.
+        return DeploymentDistributionData(pod_counts=data['pod_counts'])
 
     def __init__(self, pod_counts: List[int]):
         """Initialize DeploymentDistributionData with all statistics.
@@ -124,6 +138,12 @@ class DeploymentDistributionData:
         return json.dumps(self._to_dict(round_values=True))
 
 class Measurements:
+
+    @staticmethod
+    def from_dict(data: dict) -> 'Measurements':
+        """Create Measurements from dictionary format."""
+        return Measurements(cluster=ClusterNodeData.from_dict(data['cluster']), deployments={deployment_name: DeploymentDistributionData.from_dict(deployment_data) for deployment_name, deployment_data in data['deployments'].items()})
+        
     """Class representing measurements."""
     def __init__(self, cluster: ClusterNodeData, deployments: Dict[str, DeploymentDistributionData]):
         self.cluster = cluster

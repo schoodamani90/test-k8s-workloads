@@ -6,13 +6,15 @@ import glob
 import json
 import logging
 import os
+from pathlib import Path
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List
 
 from kubernetes import config
 from measurements import gather_cluster_measurements
+from postprocess import PostprocessedData
 
 RELEASE_PREFIX = "bw-"
 COSMOS_DEV_COSMOS_CONTEXT_NAME = "arn:aws:eks:us-east-1:843722649052:cluster/cosmos-dev-cosmos"
@@ -55,16 +57,16 @@ def parse_args():
     if not values_files:
         parser.error(f"No .yaml files found in {scenario_dir}")
 
-    release_to_values_file = {}
+    release_to_values_path = {}
     release_names = []
     for values_file in values_files:
-        filename = os.path.basename(values_file)
-        install_id = filename.replace("values-", "").replace(".yaml", "")
+        values_path = Path(values_file)
+        install_id = values_path.name.replace("values-", "").replace(".yaml", "")
         release_name = f"{RELEASE_PREFIX}{install_id}"
         release_names.append(release_name)
-        release_to_values_file[release_name] = values_file
+        release_to_values_path[release_name] = values_path
 
-    return args, release_to_values_file
+    return args, release_to_values_path
 
 def get_scenarios(parser: argparse.ArgumentParser):
     try:
@@ -85,13 +87,13 @@ def main():
         if (not args.no_print) and (not args.skip_install):
             # Do not collect release info since that will be done after install
             measurements_pre = gather_cluster_measurements()
-            logger.info(f"Pre-install measurements before:")
+            logger.info(f"Pre-install measurements:")
             measurements_pre.print()
 
         if args.render_locally:
             logger.info(f"Rendering templates locally for {args.scenario}")
-            for release_name, values_file in release_to_values.items():
-                render_templates(release_name, values_file, debug=args.debug)
+            for release_name, values_path in release_to_values.items():
+                render_templates(release_name, values_path, debug=args.debug)
 
         install_time = None
         if not args.skip_install:
@@ -103,7 +105,7 @@ def main():
                 logger.info(f"Installing {args.scenario}")
                 install_scenario(release_to_values, dry_run=args.dry_run, debug=args.debug)
             end_time = datetime.now()
-            install_time = (end_time - start_time)
+            install_time = timedelta(seconds=round((end_time - start_time).total_seconds()))
             logger.info(f"{'Uninstall' if args.uninstall else 'Install'} time: {install_time}s")
 
         if not args.uninstall:
@@ -113,6 +115,10 @@ def main():
                 logger.info(f"Post-install measurements:")
                 measurements_post.print()
 
+            postprocessed_data = PostprocessedData(measurements_pre, measurements_post).to_dict()
+            if not args.no_print:
+                logger.info(f"Postprocessed data: {postprocessed_data}")
+
             timestamp = datetime.now().isoformat(timespec='seconds')
             measurements_file = f"{MEASUREMENTS_DIR}/{args.scenario}/{args.scenario}-{timestamp}.json"
             logger.info(f"Saving measurements to {measurements_file}")
@@ -121,7 +127,8 @@ def main():
                 data = {
                     "args": vars(args),
                     "timestamp": timestamp,
-                    "install_time": install_time.total_seconds(),
+                    "install_time": str(install_time),
+                    "postprocessed": postprocessed_data,
                     "measurements_pre": measurements_pre.to_dict(),
                     "measurements_post": measurements_post.to_dict(),
                 }
@@ -144,14 +151,14 @@ def verify_cluster():
     if current_context != expected_context:
         raise Exception("Not using the expected context. scc to cosmos-dev-cosmos")
 
-def install_scenario(release_to_values: Dict[str, str], dry_run: bool=False, debug: bool=False) -> List[str]:
+def install_scenario(release_to_values: Dict[str, Path], dry_run: bool=False, debug: bool=False) -> List[str]:
     install_cmds = []
-    for release_name, values_file in release_to_values.items():
+    for release_name, values_path in release_to_values.items():
         # Install/upgrade the release
-        install_cmd = f"helm upgrade --install {release_name} ./busybox-chart -f {values_file} --namespace {release_name} --create-namespace --wait --timeout 5m {'--debug' if debug else ''}{' --dry-run' if dry_run else ''}"
-        logger.info(f"Installing {release_name} with {values_file}")
+        install_cmd = f"helm upgrade --install {release_name} ./busybox-chart -f {values_path} --namespace {release_name} --create-namespace --wait --timeout 5m {'--debug' if debug else ''}{' --dry-run' if dry_run else ''}"
+        logger.info(f"Installing {release_name} with {values_path.name}")
         install_cmds.append(install_cmd)
-    run_commands(install_cmds, capture_output=debug)
+    run_commands(install_cmds, capture_output=not debug)
 
 def uninstall_scenario(release_names: List[str], dry_run: bool=False, debug: bool=False):
     uninstall_cmds = []
@@ -159,15 +166,15 @@ def uninstall_scenario(release_names: List[str], dry_run: bool=False, debug: boo
         uninstall_cmd = f"helm uninstall {release_name} --namespace {release_name} --ignore-not-found --wait --timeout 5m {'--debug' if debug else ''}{' --dry-run' if dry_run else ''}"
         logger.info(f"Uninstalling {release_name}")
         uninstall_cmds.append(uninstall_cmd)
-    run_commands(uninstall_cmds, capture_output=debug)
+    run_commands(uninstall_cmds, capture_output=not debug)
 
-def render_templates(release_name: str, values_file: str, debug: bool=False):
+def render_templates(release_name: str, values_path: Path, debug: bool=False):
     # Create output directory
     output_dir = f"{TEMPLATES_DIR}/{release_name}"
     os.makedirs(output_dir, exist_ok=True)
 
     # Render template for reference
-    template_cmd = f"helm template {release_name} ./busybox-chart -f {values_file} --namespace {release_name} --create-namespace --output-dir {output_dir} {'--debug' if debug else ''}"
+    template_cmd = f"helm template {release_name} ./busybox-chart -f {values_path} --namespace {release_name} --create-namespace --output-dir {output_dir} {'--debug' if debug else ''}"
     logger.debug(f"Rendering templates for {release_name}")
     run_command(template_cmd, capture_output=False)
 

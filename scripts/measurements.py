@@ -21,13 +21,16 @@ class ClusterNodeData:
         self.node_count = node_count
         self.eligible_node_count = eligible_node_count
 
+    def _to_dict(self) -> dict:
+        """Convert ClusterNodeData to dictionary format."""
+        return {
+            "node_count": self.node_count,
+            "eligible_node_count": self.eligible_node_count,
+        }
+
     def __str__(self) -> str:
         """String representation of ClusterNodeData."""
-        return json.dumps(
-            self,
-            default=vars,
-            sort_keys=False,
-            indent=4)
+        return json.dumps(self._to_dict())
 
 class DeploymentDistributionData:
     """Class representing deployment information and statistics."""

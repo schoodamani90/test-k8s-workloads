@@ -3,11 +3,12 @@
 import argparse
 import concurrent
 import glob
+import json
 import logging
 import os
 import subprocess
 import sys
-import time
+from datetime import datetime
 from typing import Dict, List
 
 from kubernetes import config
@@ -17,6 +18,7 @@ RELEASE_PREFIX = "bw-"
 COSMOS_DEV_COSMOS_CONTEXT_NAME = "arn:aws:eks:us-east-1:843722649052:cluster/cosmos-dev-cosmos"
 VALUES_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/build/values"
 TEMPLATES_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/build/templates"
+MEASUREMENTS_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/output"
 
 MAX_WORKERS = 10
 
@@ -36,7 +38,7 @@ def parse_args():
     install_group = parser.add_mutually_exclusive_group(required=False)
     install_group.add_argument("--uninstall", "-u", action="store_true", help="Uninstall the scenario instead of installing it")
     install_group.add_argument("--skip-install", "-s", action="store_true", help="Take measurements without performing the install")
-    install_group.add_argument("--print", "-p", action="store_true", default=True, help="Print collected data")
+    install_group.add_argument("--no-print", "-np", action="store_true", help="Do not print to console")
 
     args = parser.parse_args()
     if args.debug:
@@ -79,7 +81,7 @@ def main():
 
         verify_cluster()
 
-        if args.print and not args.skip_install:
+        if (not args.no_print) and (not args.skip_install):
             # Do not collect release info since that will be done after install
             measurements = gather_cluster_measurements()
             logger.info(f"Cluster measurements before:")
@@ -91,27 +93,44 @@ def main():
                 render_templates(release_name, values_file, debug=args.debug)
 
         if not args.skip_install:
-            start_time = time.time()
+            start_time = datetime.now()
             if args.uninstall:
                 logger.info(f"Uninstalling {args.scenario}")
                 uninstall_scenario(release_to_values.keys(), dry_run=args.dry_run, debug=args.debug)
             else:
                 logger.info(f"Installing {args.scenario}")
                 install_scenario(release_to_values, dry_run=args.dry_run, debug=args.debug)
-            end_time = time.time()
+            end_time = datetime.now()
             logger.info(f"{'Uninstall' if args.uninstall else 'Install'} time: {end_time - start_time:.2f}s")
 
-        if args.print:
+        if not args.uninstall:
             measurements = gather_cluster_measurements(release_to_values.keys())
-            logger.info(f"Cluster measurements{' after' if not args.skip_install else ''}:")
-            print_measurements(measurements)
+
+            if not args.no_print:
+                logger.info(f"Cluster measurements{' after' if not args.skip_install else ''}:")
+                print_measurements(measurements)
+
+            timestamp = datetime.now().isoformat(timespec='seconds')
+            measurements_file = f"{MEASUREMENTS_DIR}/{args.scenario}/{args.scenario}-{timestamp}.json"
+            logger.info(f"Saving measurements to {measurements_file}")
+            os.makedirs(f"{MEASUREMENTS_DIR}/{args.scenario}", exist_ok=True)
+            with open(measurements_file, 'w') as f:
+                data = {
+                    "args": vars(args),
+                    "timestamp": timestamp,
+                    "measurements": {"cluster": measurements["nodes"]._to_dict(),
+                    "deployments": {release_name: deployment_info._to_dict(round_values=True) for release_name, deployment_info in measurements["deployments"].items()}},
+                }
+                json.dump(data, f, indent=4)
+
+        logger.info("Done")
     except Exception:
         logger.exception(f"Error running scenario {args.scenario}")
         sys.exit(1)
 
 def verify_cluster():
     """Verify we're on the right cluster
-    FUTURE: Allow specifying the cluster to use
+    FUTURE: Allow specifying other clusters
     """
     config.load_kube_config()
     # Safety check we're on the right cluster

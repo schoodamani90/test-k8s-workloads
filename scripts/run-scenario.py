@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Dict, List
 
 from kubernetes import config
-from measurements import gather_cluster_measurements, print_measurements
+from measurements import gather_cluster_measurements
 
 RELEASE_PREFIX = "bw-"
 COSMOS_DEV_COSMOS_CONTEXT_NAME = "arn:aws:eks:us-east-1:843722649052:cluster/cosmos-dev-cosmos"
@@ -81,17 +81,19 @@ def main():
 
         verify_cluster()
 
+        measurements_pre = None
         if (not args.no_print) and (not args.skip_install):
             # Do not collect release info since that will be done after install
-            measurements = gather_cluster_measurements()
-            logger.info(f"Cluster measurements before:")
-            print_measurements(measurements)
+            measurements_pre = gather_cluster_measurements()
+            logger.info(f"Pre-install measurements before:")
+            measurements_pre.print()
 
         if args.render_locally:
             logger.info(f"Rendering templates locally for {args.scenario}")
             for release_name, values_file in release_to_values.items():
                 render_templates(release_name, values_file, debug=args.debug)
 
+        install_time = None
         if not args.skip_install:
             start_time = datetime.now()
             if args.uninstall:
@@ -101,14 +103,15 @@ def main():
                 logger.info(f"Installing {args.scenario}")
                 install_scenario(release_to_values, dry_run=args.dry_run, debug=args.debug)
             end_time = datetime.now()
-            logger.info(f"{'Uninstall' if args.uninstall else 'Install'} time: {end_time - start_time:.2f}s")
+            install_time = (end_time - start_time)
+            logger.info(f"{'Uninstall' if args.uninstall else 'Install'} time: {install_time}s")
 
         if not args.uninstall:
-            measurements = gather_cluster_measurements(release_to_values.keys())
+            measurements_post = gather_cluster_measurements(release_to_values.keys())
 
             if not args.no_print:
-                logger.info(f"Cluster measurements{' after' if not args.skip_install else ''}:")
-                print_measurements(measurements)
+                logger.info(f"Post-install measurements:")
+                measurements_post.print()
 
             timestamp = datetime.now().isoformat(timespec='seconds')
             measurements_file = f"{MEASUREMENTS_DIR}/{args.scenario}/{args.scenario}-{timestamp}.json"
@@ -118,8 +121,9 @@ def main():
                 data = {
                     "args": vars(args),
                     "timestamp": timestamp,
-                    "measurements": {"cluster": measurements["nodes"]._to_dict(),
-                    "deployments": {release_name: deployment_info._to_dict(round_values=True) for release_name, deployment_info in measurements["deployments"].items()}},
+                    "install_time": install_time.total_seconds(),
+                    "measurements_pre": measurements_pre.to_dict(),
+                    "measurements_post": measurements_post.to_dict(),
                 }
                 json.dump(data, f, indent=4)
 

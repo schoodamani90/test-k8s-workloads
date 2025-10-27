@@ -1,7 +1,7 @@
 import logging
 import statistics
 import json
-from typing import List
+from typing import Dict, List
 from kubernetes import client, config
 
 logger = logging.getLogger(__name__)
@@ -123,12 +123,59 @@ class DeploymentDistributionData:
         """String representation of DeploymentDistributionData."""
         return json.dumps(self._to_dict(round_values=True))
 
-def gather_cluster_measurements(release_names: List[str]=[]) -> dict:
+class Measurements:
+    """Class representing measurements."""
+    def __init__(self, cluster: ClusterNodeData, deployments: Dict[str, DeploymentDistributionData]):
+        self.cluster = cluster
+        self.deployments = deployments
+
+    def to_dict(self) -> dict:
+        """Convert Measurements to dictionary format."""
+        return {
+            "cluster": self.cluster._to_dict(),
+            "deployments": {deployment_name: deployment_info._to_dict(round_values=True) for deployment_name, deployment_info in self.deployments.items()},
+        }
+
+    def __str__(self) -> str:
+        """String representation of Measurements."""
+        return json.dumps(self.to_dict())
+
+    def print(self):
+        logger.info(f"Cluster info: {self.cluster}")
+        for deployment_name, distribution_info in self.deployments.items():
+            logger.info(f"[{deployment_name}] {distribution_info.total_pods} pods spread across {distribution_info.nodes_used} nodes")
+
+            # Visualization of the deployment's distribution across nodes.
+            # Each node is represented by a bar of the number of pods on the node.
+            # We want to see even bars
+            distribution_graph = []
+            for node_index, pod_count in enumerate(sorted(distribution_info.pod_counts)):
+                bar = "#" * pod_count
+                distribution_graph.append(f"\tNode {node_index:02d}: {bar} ({pod_count} pods)")
+            logger.info(f"[{deployment_name}] Pod distribution graph:\n" + "\n".join(distribution_graph))
+
+            if POD_COUNT_GRAPH:
+                # Alternate visualization. Groups nodes by pod count to show how many nodes have that many pods.
+                # The fewer the bars, and the more grouped together, the better. As that indicates a more even distribution.
+                podcount_to_nodecount = {}
+                for pod_count in distribution_info.pod_counts:
+                    podcount_to_nodecount[pod_count] = podcount_to_nodecount.get(pod_count, 0) + 1
+
+                distribution_graph = []
+                logger.info(f"[{deployment_name}] Node distribution:")
+                for pod_count in sorted(podcount_to_nodecount.keys()):
+                    bar = "#" * podcount_to_nodecount[pod_count]
+                    distribution_graph.append(f"\t{pod_count:02d} pods: {bar} ({podcount_to_nodecount[pod_count]} nodes)")
+                logger.info(f"[{deployment_name}] Nodes grouped by pod count:\n" + "\n".join(distribution_graph))
+
+            logger.info(f"[{deployment_name}] Deployment data: {distribution_info}")
+
+def gather_cluster_measurements(release_names: List[str]=[]) -> Measurements:
     node_info = get_node_info()
-    measurements = {
-        "nodes": node_info,
-        "deployments": {release_name: gather_deployment_distribution_data(release_name, node_info.node_count) for release_name in release_names},
-    }
+    measurements = Measurements(
+        cluster=node_info,
+        deployments={release_name: gather_deployment_distribution_data(release_name, node_info.node_count) for release_name in release_names},
+    )
     return measurements
 
 def get_node_info() -> ClusterNodeData:
@@ -197,33 +244,3 @@ def gather_deployment_distribution_data(deployment_name: str, cluster_node_count
 
     logger.debug(f"[{deployment_name}] Deployment distribution: {distribution_info}")
     return distribution_info
-
-def print_measurements(measurements: dict):
-    logger.info(f"Cluster info: {measurements['nodes']}")
-    for deployment_name, distribution_info in measurements.get("deployments", {}).items():
-        logger.info(f"[{deployment_name}] {distribution_info.total_pods} pods spread across {distribution_info.nodes_used} nodes")
-
-        # Visualization of the deployment's distribution across nodes.
-        # Each node is represented by a bar of the number of pods on the node.
-        # We want to see even bars
-        distribution_graph = []
-        for node_index, pod_count in enumerate(sorted(distribution_info.pod_counts)):
-            bar = "#" * pod_count
-            distribution_graph.append(f"\tNode {node_index:02d}: {bar} ({pod_count} pods)")
-        logger.info(f"[{deployment_name}] Pod distribution graph:\n" + "\n".join(distribution_graph))
-
-        if POD_COUNT_GRAPH:
-            # Alternate visualization. Groups nodes by pod count to show how many nodes have that many pods.
-            # The fewer the bars, and the more grouped together, the better. As that indicates a more even distribution.
-            podcount_to_nodecount = {}
-            for pod_count in distribution_info.pod_counts:
-                podcount_to_nodecount[pod_count] = podcount_to_nodecount.get(pod_count, 0) + 1
-
-            distribution_graph = []
-            logger.info(f"[{deployment_name}] Node distribution:")
-            for pod_count in sorted(podcount_to_nodecount.keys()):
-                bar = "#" * podcount_to_nodecount[pod_count]
-                distribution_graph.append(f"\t{pod_count:02d} pods: {bar} ({podcount_to_nodecount[pod_count]} nodes)")
-            logger.info(f"[{deployment_name}] Nodes grouped by pod count:\n" + "\n".join(distribution_graph))
-
-        logger.info(f"[{deployment_name}] Deployment data: {distribution_info}")

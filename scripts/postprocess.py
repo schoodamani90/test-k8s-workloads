@@ -43,20 +43,34 @@ class PostprocessedData:
         self.node_skew_median = statistics.median(node_skew_values)
         self.node_skew_max = max(node_skew_values)
 
+        # more metrics on node usage
+        nosed_used_values = [deployment.nodes_used for deployment in measurements_post.deployments.values()]
+        self.nosed_used_avg = statistics.mean(nosed_used_values)
+        self.nosed_used_median = statistics.median(nosed_used_values)
+        self.nosed_used_max = max(nosed_used_values)
+        self.nosed_used_min = min(nosed_used_values)
+
     def to_dict(self) -> dict:
         return {
             'scale_direction': self.scale_direction,
             'scale_amount': self.scale_amount,
             'scale_percentage': round(self.scale_percentage, 1),
+
             'jain_fairness_index_mean': round(self.jain_fairness_index_mean, 3),
             'jain_fairness_index_median': round(self.jain_fairness_index_median, 3),
             'coefficient_of_variation_mean': round(self.coefficient_of_variation_mean, 3),
             'coefficient_of_variation_median': round(self.coefficient_of_variation_median, 3),
             'gini_coefficient_mean': round(self.gini_coefficient_mean, 3),
             'gini_coefficient_median': round(self.gini_coefficient_median, 3),
-            'node_skew_mean': round(self.node_skew_mean, 3),
+
+            'node_skew_mean': round(self.node_skew_mean, 2),
             'node_skew_median': self.node_skew_median,
             'node_skew_max': self.node_skew_max,
+
+            'nosed_used_avg': round(self.nosed_used_avg, 2),
+            'nosed_used_median': round(self.nosed_used_median, 2),
+            'nosed_used_max': self.nosed_used_max,
+            'nosed_used_min': self.nosed_used_min,
         }
 
     def __str__(self) -> str:

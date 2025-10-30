@@ -1,0 +1,276 @@
+{
+    "args": {
+        "scenario": "P2",
+        "debug": false,
+        "no_print": true,
+        "dry_run": false,
+        "render_locally": false,
+        "uninstall": false,
+        "skip_install": false
+    },
+    "timestamp": "2025-10-28T13:41:50",
+    "install_time": "0:02:52",
+    "postprocessed": {
+        "scale_direction": "up",
+        "scale_amount": 8,
+        "scale_percentage": 88.9,
+        "jain_fairness_index_mean": 0.665,
+        "jain_fairness_index_median": 0.685,
+        "coefficient_of_variation_mean": 0.779,
+        "coefficient_of_variation_median": 0.72,
+        "gini_coefficient_mean": 0.342,
+        "gini_coefficient_median": 0.337,
+        "node_skew_mean": 12.8,
+        "node_skew_median": 14.5,
+        "node_skew_max": 18,
+        "nosed_used_avg": 9,
+        "nosed_used_median": 8.0,
+        "nosed_used_max": 12,
+        "nosed_used_min": 6
+    },
+    "measurements_pre": {
+        "cluster": {
+            "node_count": 9,
+            "eligible_node_count": 6
+        },
+        "deployments": {}
+    },
+    "measurements_post": {
+        "cluster": {
+            "node_count": 17,
+            "eligible_node_count": 14
+        },
+        "deployments": {
+            "bw-np0-w6-r50": {
+                "total_pods": 50,
+                "pod_counts": [
+                    3,
+                    8,
+                    8,
+                    8,
+                    8,
+                    3,
+                    2,
+                    2,
+                    2,
+                    3,
+                    2,
+                    1
+                ],
+                "nodes_used": 12,
+                "max_pods": 8,
+                "min_pods": 1,
+                "node_skew": 7,
+                "mean_pods": 4.167,
+                "median_pods": 3.0,
+                "coefficient_of_variation": 0.693,
+                "gini_coefficient": 0.343,
+                "jain_fairness_index": 0.694
+            },
+            "bw-np0-w7-r50": {
+                "total_pods": 50,
+                "pod_counts": [
+                    3,
+                    7,
+                    8,
+                    16,
+                    7,
+                    7,
+                    2
+                ],
+                "nodes_used": 7,
+                "max_pods": 16,
+                "min_pods": 2,
+                "node_skew": 14,
+                "mean_pods": 7.143,
+                "median_pods": 7,
+                "coefficient_of_variation": 0.634,
+                "gini_coefficient": 0.297,
+                "jain_fairness_index": 0.744
+            },
+            "bw-np0-w1-r50": {
+                "total_pods": 50,
+                "pod_counts": [
+                    6,
+                    19,
+                    6,
+                    5,
+                    7,
+                    6,
+                    1
+                ],
+                "nodes_used": 7,
+                "max_pods": 19,
+                "min_pods": 1,
+                "node_skew": 18,
+                "mean_pods": 7.143,
+                "median_pods": 6,
+                "coefficient_of_variation": 0.781,
+                "gini_coefficient": 0.331,
+                "jain_fairness_index": 0.657
+            },
+            "bw-np0-w0-r50": {
+                "total_pods": 50,
+                "pod_counts": [
+                    1,
+                    8,
+                    4,
+                    9,
+                    7,
+                    8,
+                    8,
+                    5
+                ],
+                "nodes_used": 8,
+                "max_pods": 9,
+                "min_pods": 1,
+                "node_skew": 8,
+                "mean_pods": 6.25,
+                "median_pods": 7.5,
+                "coefficient_of_variation": 0.434,
+                "gini_coefficient": 0.215,
+                "jain_fairness_index": 0.859
+            },
+            "bw-np0-w5-r50": {
+                "total_pods": 50,
+                "pod_counts": [
+                    3,
+                    8,
+                    8,
+                    2,
+                    9,
+                    8,
+                    2,
+                    3,
+                    3,
+                    2,
+                    2
+                ],
+                "nodes_used": 11,
+                "max_pods": 9,
+                "min_pods": 2,
+                "node_skew": 7,
+                "mean_pods": 4.545,
+                "median_pods": 3,
+                "coefficient_of_variation": 0.655,
+                "gini_coefficient": 0.324,
+                "jain_fairness_index": 0.719
+            },
+            "bw-np0-w4-r50": {
+                "total_pods": 50,
+                "pod_counts": [
+                    7,
+                    10,
+                    10,
+                    10,
+                    9,
+                    4
+                ],
+                "nodes_used": 6,
+                "max_pods": 10,
+                "min_pods": 4,
+                "node_skew": 6,
+                "mean_pods": 8.333,
+                "median_pods": 9.5,
+                "coefficient_of_variation": 0.291,
+                "gini_coefficient": 0.133,
+                "jain_fairness_index": 0.934
+            },
+            "bw-np0-w2-r50": {
+                "total_pods": 50,
+                "pod_counts": [
+                    2,
+                    16,
+                    19,
+                    2,
+                    2,
+                    2,
+                    2,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "nodes_used": 12,
+                "max_pods": 19,
+                "min_pods": 1,
+                "node_skew": 18,
+                "mean_pods": 4.167,
+                "median_pods": 2.0,
+                "coefficient_of_variation": 1.507,
+                "gini_coefficient": 0.58,
+                "jain_fairness_index": 0.325
+            },
+            "bw-np0-w3-r50": {
+                "total_pods": 50,
+                "pod_counts": [
+                    4,
+                    5,
+                    5,
+                    5,
+                    17,
+                    12,
+                    2
+                ],
+                "nodes_used": 7,
+                "max_pods": 17,
+                "min_pods": 2,
+                "node_skew": 15,
+                "mean_pods": 7.143,
+                "median_pods": 5,
+                "coefficient_of_variation": 0.747,
+                "gini_coefficient": 0.349,
+                "jain_fairness_index": 0.676
+            },
+            "bw-np0-w8-r50": {
+                "total_pods": 50,
+                "pod_counts": [
+                    18,
+                    10,
+                    7,
+                    3,
+                    5,
+                    3,
+                    1,
+                    3
+                ],
+                "nodes_used": 8,
+                "max_pods": 18,
+                "min_pods": 1,
+                "node_skew": 17,
+                "mean_pods": 6.25,
+                "median_pods": 4.0,
+                "coefficient_of_variation": 0.884,
+                "gini_coefficient": 0.42,
+                "jain_fairness_index": 0.594
+            },
+            "bw-np0-w9-r50": {
+                "total_pods": 50,
+                "pod_counts": [
+                    3,
+                    19,
+                    2,
+                    4,
+                    6,
+                    3,
+                    3,
+                    2,
+                    3,
+                    1,
+                    2,
+                    2
+                ],
+                "nodes_used": 12,
+                "max_pods": 19,
+                "min_pods": 1,
+                "node_skew": 18,
+                "mean_pods": 4.167,
+                "median_pods": 3.0,
+                "coefficient_of_variation": 1.162,
+                "gini_coefficient": 0.427,
+                "jain_fairness_index": 0.447
+            }
+        }
+    }
+}

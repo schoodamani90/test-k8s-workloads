@@ -137,6 +137,14 @@ SCENARIOS = [
         replicas_min=2,
         replicas_max=50,
     ),
+    Scenario(
+        name="P2",
+        mechanism=Mechanism.POD_ANTI_AFFINITY,
+        nodepool_count=1,
+        workloads_per_nodepool=[10],
+        replicas_min=50,
+        replicas_max=50,
+    ),
 ]
 
 def main():

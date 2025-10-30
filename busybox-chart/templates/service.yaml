@@ -1,14 +1,10 @@
-{{- range .Values.multiNamespace.namespaces }}
-{{- $namespace := .name }}
----
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "busybox-chart.namespacedName" (dict "namespace" $namespace "root" $) }}
-  namespace: {{ $namespace }}
+  name: {{ .Release.Name }}
   labels:
     {{- include "busybox-chart.labels" $ | nindent 4 }}
-    busybox-chart.namespace: {{ $namespace }}
+    busybox-chart.namespace: {{ .Release.Namespace }}
 spec:
   type: {{ $.Values.service.type }}
   ports:
@@ -18,5 +14,4 @@ spec:
       name: http
   selector:
     {{- include "busybox-chart.selectorLabels" $ | nindent 4 }}
-    busybox-chart.namespace: {{ $namespace }}
-{{- end }}
+    busybox-chart.namespace: {{ .Release.Namespace }}

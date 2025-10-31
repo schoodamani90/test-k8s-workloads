@@ -29,6 +29,7 @@ Common labels
 helm.sh/chart: {{ include "busybox-chart.chart" . }}
 {{ include "busybox-chart.selectorLabels" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/part-of: {{ "COSMOS-2969" }}
 {{- end }}
 
 {{/*
@@ -36,6 +37,7 @@ Selector labels
 */}}
 {{- define "busybox-chart.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "busybox-chart.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 

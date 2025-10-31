@@ -29,16 +29,20 @@ class Scenario:
     https://docs.google.com/document/d/1ABx52N-S7Oji2xwaI5I7l_CRB3oMLvMnrEbjSUqlExY/edit?tab=t.0#heading=h.5kjqx4qz5vzr
     """
     def __init__(self, name: str, mechanism: Mechanism,
-                 nodepool_count: int,
                  workloads_per_nodepool: List[int],
-                 replicas_min: int, replicas_max: int):
+                 replicas_min: int, replicas_max: int,
+                 nodepool_count: int = 1,
+                 restart_count: int = 0):
         self.name = name
         self.mechanism = mechanism
         self.nodepool_count = nodepool_count
         self.workloads_per_nodepool = workloads_per_nodepool
         self.replicas_min = replicas_min
         self.replicas_max = replicas_max
+        self.restart_count = restart_count
 
+    def __str__(self):
+        return self.name
 
 SCENARIOS = [
     Scenario(
@@ -145,13 +149,43 @@ SCENARIOS = [
         replicas_min=50,
         replicas_max=50,
     ),
+    Scenario(
+        name="P3.i",
+        mechanism=Mechanism.POD_ANTI_AFFINITY,
+        nodepool_count=1,
+        workloads_per_nodepool=[10],
+        replicas_min=50,
+        replicas_max=50,
+        restart_count=1,
+    ),
+    Scenario(
+        name="P3.ii",
+        mechanism=Mechanism.POD_ANTI_AFFINITY,
+        nodepool_count=1,
+        workloads_per_nodepool=[10],
+        replicas_min=50,
+        replicas_max=50,
+        restart_count=10,
+    ),
 ]
 
 def main():
+    generate_all_values()
+
+def get_scenario(name: str) -> Scenario:
+    for scenario in SCENARIOS:
+        if scenario.name == name:
+            return scenario
+    raise ValueError(f"Scenario {name} not found")
+
+def generate_all_values() -> None:
     for scenario in SCENARIOS:
         generate_values(scenario)
 
-def generate_values(scenario):
+def generate_values(scenario: 'Scenario' or str) -> None:
+
+    if isinstance(scenario, str):
+        scenario = get_scenario(scenario)
 
     default_values = yaml.safe_load(open("busybox-chart/values.yaml"))
 
@@ -159,6 +193,7 @@ def generate_values(scenario):
         replica_counts = determine_replica_counts_for_nodepool(scenario, nodepool_index)
         for workload_id in range(scenario.workloads_per_nodepool[nodepool_index % len(scenario.workloads_per_nodepool)]):
             replica_count = replica_counts[workload_id % len(replica_counts)]
+            release_name = f"np{nodepool_index}-w{workload_id}-r{replica_count}"
 
             values = default_values.copy()
 
@@ -195,7 +230,12 @@ def generate_values(scenario):
                                         {
                                             'key': 'app.kubernetes.io/name',
                                             'operator': 'In',
-                                            'values': ['busybox']
+                                            'values': ['busybox-chart']
+                                        },
+                                        {
+                                            'key': 'app.kubernetes.io/instance',
+                                            'operator': 'In',
+                                            'values': [release_name]
                                         }
                                     ]
                                     # Can use by default in 1.33 and later
@@ -212,10 +252,10 @@ def generate_values(scenario):
                 raise ValueError(f"Invalid mechanism: {scenario.mechanism.value}")
 
             os.makedirs(f"{VALUES_DIR}/{scenario.name}", exist_ok=True)
-            yaml.dump(values, open(f"{VALUES_DIR}/{scenario.name}/values-np{nodepool_index}-w{workload_id}-r{replica_count}.yaml", "w"))
+            yaml.dump(values, open(f"{VALUES_DIR}/{scenario.name}/values-{release_name}.yaml", "w"))
 
 
-def determine_replica_counts_for_nodepool(scenario, nodepool_index):
+def determine_replica_counts_for_nodepool(scenario: Scenario, nodepool_index: int) -> List[int]:
     """
     @returns a list of replica counts spanning from scenario.replicas_min to scenario.replicas_max, approximately evenly spread. The length of the list is the number of workloads for the nodepool, based on the scenario configuration.
     """

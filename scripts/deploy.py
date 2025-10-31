@@ -97,15 +97,14 @@ def render_templates(release_name: str, values_path: Path, output_dir: Path, deb
     # Render template for reference
     template_cmd = f"helm template {release_name} ./busybox-chart -f {values_path} --namespace {release_name} --create-namespace --output-dir {output_dir} {'--debug' if debug else ''}"
     logger.debug(f"Rendering templates for {release_name}")
-    run_command(template_cmd, capture_output=False)
+    run_command(template_cmd, capture_output=not debug)
 
-def restart_deployments(release_names: List[str]):
+def restart_deployments(release_names: List[str], debug: bool=False):
     """
     Restart the deployments for the given release names
     """
     restart_cmds = []
     for release_name in release_names:
         restart_cmd = f"kubectl rollout restart deployment {release_name} --namespace {release_name}"
-        logger.info(f"Adding restart command for {release_name}")
         restart_cmds.append(restart_cmd)
-    run_commands(restart_cmds, capture_output=False)
+    run_commands(restart_cmds, capture_output=not debug)

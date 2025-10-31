@@ -24,6 +24,8 @@ TEMPLATES_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/
 MEASUREMENTS_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/output"
 
 RESTART_DELAY = 60
+ROLLOUT_WAIT = 300
+
 
 def setup_logging() -> logging.Logger:
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
@@ -127,10 +129,11 @@ def main():
                     logger.info(f"Beginning restart {restart_index + 1}/{args.scenario.restart_count}")
                     restart_deployments(release_to_values.keys())
                     # From experimentation, rollouts take a bit longer than the initial install
-                    time.sleep(300)
+                    logger.info(f"Waiting {ROLLOUT_WAIT} seconds for rollouts to complete")
+                    time.sleep(ROLLOUT_WAIT)
                     verify_install(release_to_values.keys())
                     logger.info(f"Completed restart {restart_index + 1}/{args.scenario.restart_count}")
-                    time.sleep(60)
+                    time.sleep(RESTART_DELAY)
                 logger.info(f"Restarts complete")
 
             # Gather post-install measurements

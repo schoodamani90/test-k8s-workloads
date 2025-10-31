@@ -143,7 +143,7 @@ class Measurements:
     def from_dict(data: dict) -> 'Measurements':
         """Create Measurements from dictionary format."""
         return Measurements(cluster=ClusterNodeData.from_dict(data['cluster']), deployments={deployment_name: DeploymentDistributionData.from_dict(deployment_data) for deployment_name, deployment_data in data['deployments'].items()})
-        
+
     """Class representing measurements."""
     def __init__(self, cluster: ClusterNodeData, deployments: Dict[str, DeploymentDistributionData]):
         self.cluster = cluster
@@ -194,7 +194,7 @@ def gather_cluster_measurements(release_names: List[str]=[]) -> Measurements:
     node_info = get_node_info()
     measurements = Measurements(
         cluster=node_info,
-        deployments={release_name: gather_deployment_distribution_data(release_name, node_info.node_count) for release_name in release_names},
+        deployments={release_name: gather_deployment_distribution_data(release_name, node_info.eligible_node_count) for release_name in release_names},
     )
     return measurements
 
@@ -243,9 +243,16 @@ def gather_deployment_distribution_data(deployment_name: str, cluster_node_count
     logger.info(f"[{deployment_name}] Gathering deployment data")
     config.load_kube_config()
     v1 = client.CoreV1Api()
-    # Assumes deployment is in its own namespace.
-    # FUTURE: Support getting a specific deployment within a namespace that has other pods running
-    pods = v1.list_namespaced_pod(deployment_name)
+    # Match the selector labels from the Helm chart template.
+    label_selector = f"app.kubernetes.io/name=busybox-chart,app.kubernetes.io/instance={deployment_name}"
+    # Ignore anything not running. We should have verified this prior to gathering data.
+    # Some terminating pods may still be in the API from prior runs/restarts, but we'll ignore them.
+    field_selector = "status.phase=Running"
+    pods = v1.list_namespaced_pod(
+        deployment_name,
+        label_selector=label_selector,
+        field_selector=field_selector,
+    )
     total_pods = len(pods.items)
 
     node_to_podcount = {}

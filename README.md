@@ -25,10 +25,13 @@ source setup.sh
 
 ```bash
 # Generate all predefined scenarios
-python generate-values.py
+python scenarios.py
 
 # This creates values files in build/values/ for each scenario
 ```
+
+The convention of the generated values filenames is `values-{release_name}.yaml`,
+where the convention for release name is `np{nodepool_index}-w{workload_id}-r{replica_count}`.
 
 ### 4. Run a Test Scenario
 
@@ -44,7 +47,7 @@ python run-scenario.py C2 --uninstall
 
 ### Core Components
 
-- **`generate-values.py`**: Generates Helm values files for different test scenarios
+- **`scenarios.py`**: Generates Helm values files for different test scenarios
 - **`run-scenario.py`**: Installs/uninstalls scenarios and collects measurements
 - **`busybox-chart/`**: Helm chart for deploying test workloads
 - **`output/`**: JSON files containing detailed performance measurements
@@ -53,10 +56,9 @@ python run-scenario.py C2 --uninstall
 
 The official list of scenarios is tracked [in this spreadsheet](https://docs.google.com/spreadsheets/d/1bwdC6Ll_iOYvhCIqxCnHrUGn-GX6dtR2EKRf7zNB-5c/edit).
 
-
 ## Adding New Scenarios
 
-### 1. Edit `generate-values.py`
+### 1. Edit `scenarios.py`
 
 Add a new scenario to the `SCENARIOS` list:
 
@@ -71,13 +73,15 @@ Scenario(
 )
 ```
 
-### 2. Generate Values Files
+### 2. (Optional) Generate Values Files
 
 ```bash
-python generate-values.py
+python scenarios.py
 ```
 
 This creates values files in `build/values/MY_SCENARIO/` with different replica counts and configurations.
+
+This is done automatically when running a scenario, but can be useful to do beforehand when creating new scenarios or adjusting the value generation logic.
 
 ### 3. Run the New Scenario
 
@@ -87,6 +91,9 @@ python run-scenario.py MY_SCENARIO
 
 # Uninstall when done
 python run-scenario.py MY_SCENARIO --uninstall
+
+# Install with a custom prefix on all releases
+python run-scenario.py MY_SCENARIO --release-prefix myusername
 ```
 
 ## Understanding Output Files

@@ -190,11 +190,12 @@ class Measurements:
 
             logger.info(f"[{deployment_name}] Deployment data: {distribution_info}")
 
-def gather_cluster_measurements(release_names: List[str]=[]) -> Measurements:
+def gather_cluster_measurements(namespaces: List[str]=[]) -> Measurements:
     node_info = get_node_info()
+    deployments = gather_deployment_distribution_data(namespaces, node_info.eligible_node_count)
     measurements = Measurements(
         cluster=node_info,
-        deployments={release_name: gather_deployment_distribution_data(release_name, node_info.eligible_node_count) for release_name in release_names},
+        deployments=deployments,
     )
     return measurements
 
@@ -236,38 +237,50 @@ def handle_api_exception(e: client.exceptions.ApiException):
         logger.error(f"Error getting node count: {e}")
         raise Exception("kubernetes API error") from e
 
-def gather_deployment_distribution_data(deployment_name: str, cluster_node_count: int):
+def gather_deployment_distribution_data(namespace: str, cluster_node_count: int) -> Dict[str, DeploymentDistributionData]:
     """
     Gather data about a deployment's distribution across nodes.
+
+    Returns:
+        Dictionary of deployment name to DeploymentDistributionData.
     """
-    logger.info(f"[{deployment_name}] Gathering deployment data")
     config.load_kube_config()
-    v1 = client.CoreV1Api()
-    # Match the selector labels from the Helm chart template.
-    label_selector = f"app.kubernetes.io/name=busybox-chart,app.kubernetes.io/instance={deployment_name}"
-    # Ignore anything not running. We should have verified this prior to gathering data.
-    # Some terminating pods may still be in the API from prior runs/restarts, but we'll ignore them.
-    field_selector = "status.phase=Running"
-    pods = v1.list_namespaced_pod(
-        deployment_name,
-        label_selector=label_selector,
-        field_selector=field_selector,
-    )
-    total_pods = len(pods.items)
+    core_v1 = client.CoreV1Api()
+    apps_v1 = client.AppsV1Api()
 
-    node_to_podcount = {}
-    for pod in pods.items:
-        node_to_podcount[pod.spec.node_name] = node_to_podcount.get(pod.spec.node_name, 0) + 1
+    ddd = {}
 
-    nodes_used = len(node_to_podcount)
-    logger.debug(f"[{deployment_name}] {total_pods} pods spread across {nodes_used} nodes")
-    logger.debug(f"[{deployment_name}] Node names: {node_to_podcount.keys()}")
+    deployments = core_v1.list_namespaced_deployment(namespace=namespace)
+    for deployment in deployments.items:
+        deployment_name = deployment.metadata.name
 
-    unused_nodes = cluster_node_count - len(node_to_podcount.keys())
-    # TODO only include unused nodes if they have room for a pod
-    pod_counts = list(node_to_podcount.values()) + ([0] * unused_nodes if (INCLUDE_UNUSED_NODES and unused_nodes and max(node_to_podcount.values()) > 1) else [])
+        logger.info(f"[{deployment_name}] Gathering deployment data")
+        # Match the selector labels from the Helm chart template.
+        deployment = apps_v1.read_namespaced_deployment(deployment_name, namespace=namespace)
+        label_selector = ",".join([f"{key}={value}" for key, value in deployment.spec.selector.match_labels.items()])
+        # Ignore anything not running. We should have verified this prior to gathering data.
+        # Some terminating pods may still be in the API from prior runs/restarts, but we'll ignore them.
+        field_selector = "status.phase=Running"
+        pods = core_v1.list_namespaced_pod(
+            namespace=namespace,
+            label_selector=label_selector,
+            field_selector=field_selector,
+        )
+        total_pods = len(pods.items)
 
-    distribution_info = DeploymentDistributionData(pod_counts)
+        node_to_podcount = {}
+        for pod in pods.items:
+            node_to_podcount[pod.spec.node_name] = node_to_podcount.get(pod.spec.node_name, 0) + 1
 
-    logger.debug(f"[{deployment_name}] Deployment distribution: {distribution_info}")
-    return distribution_info
+        nodes_used = len(node_to_podcount)
+        logger.debug(f"[{deployment_name}] {total_pods} pods spread across {nodes_used} nodes")
+        logger.debug(f"[{deployment_name}] Node names: {node_to_podcount.keys()}")
+
+        unused_nodes = cluster_node_count - len(node_to_podcount.keys())
+        # TODO only include unused nodes if they have room for a pod
+        pod_counts = list(node_to_podcount.values()) + ([0] * unused_nodes if (INCLUDE_UNUSED_NODES and unused_nodes and max(node_to_podcount.values()) > 1) else [])
+
+        distribution_info = DeploymentDistributionData(pod_counts)
+        logger.debug(f"[{deployment_name}] Deployment distribution: {distribution_info}")
+        ddd[deployment_name] = distribution_info
+    return ddd

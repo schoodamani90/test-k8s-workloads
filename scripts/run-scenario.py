@@ -95,8 +95,7 @@ def main():
 
         verify_cluster(COSMOS_DEV_COSMOS_CONTEXT_NAME)
 
-        # Do not collect release info since that will be done after install
-        measurements_pre = gather_cluster_measurements()
+        measurements_pre = gather_cluster_measurements(release_to_values.keys())
         if (not args.no_print) and (not args.skip_install):
             logger.info(f"Pre-install measurements:")
             measurements_pre.print()
@@ -122,6 +121,8 @@ def main():
         if not args.uninstall:
 
             verify_install(release_to_values.keys())
+            
+            measurements_mid = gather_cluster_measurements(release_to_values.keys())
 
             if args.scenario.restart_count > 0 and not args.skip_install:
                 logger.info(f"Restarting deployments {release_to_values.keys()} {args.scenario.restart_count} times")
@@ -158,6 +159,7 @@ def main():
                     "install_time": str(install_time),
                     "postprocessed": postprocessed_data,
                     "measurements_pre": measurements_pre.to_dict(),
+                    "measurements_mid": measurements_mid.to_dict(),
                     "measurements_post": measurements_post.to_dict(),
                 }
                 json.dump(data, f, indent=4)

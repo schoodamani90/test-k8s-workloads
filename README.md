@@ -1,214 +1,197 @@
-# Multi-Namespace Helm Chart Example
+# Kubernetes Workload Testing Framework
 
-This repository demonstrates how to create a Helm chart that can deploy resources across multiple namespaces. This is useful for scenarios like multi-tenant applications, deploying to multiple environments, or cross-cutting services.
+This repository provides a comprehensive framework for testing Kubernetes workload distribution and scheduling behavior using Helm charts. The framework supports various scheduling mechanisms and generates detailed performance measurements.
 
-## Features
+## Overview
 
-- ✅ Deploy to multiple namespaces from a single chart
-- ✅ Automatic namespace creation with labels and annotations
-- ✅ Per-namespace configuration overrides
-- ✅ Backward compatibility with single-namespace deployments
-- ✅ Service account creation per namespace
-- ✅ Resource customization per namespace
+The testing framework uses Helm to install and manage Kubernetes workloads across different scenarios. It generates values files for various test scenarios and measures cluster behavior during workload deployment.
 
-## Chart Structure
+## Quick Start
 
-```
-busybox-chart/
-├── Chart.yaml                      # Chart metadata
-├── values.yaml                     # Default values with multi-namespace config
-├── values-single-namespace.yaml    # Example: Traditional single namespace
-├── values-multi-env.yaml          # Example: Multi-environment deployment
-├── values-multi-tenant.yaml       # Example: Multi-tenant deployment
-└── templates/
-    ├── _helpers.tpl               # Helper templates for namespace logic
-    ├── namespace.yaml             # Automatic namespace creation
-    ├── deployment.yaml            # Multi-namespace aware deployments
-    ├── service.yaml               # Services for each namespace
-    ├── serviceaccount.yaml        # Service accounts per namespace
-    └── NOTES.txt                  # Deployment instructions
-```
+### 1. Prerequisites
 
-## Usage Examples
+- Python 3.7+
+- Helm 3.x
+- kubectl configured for cosmos-dev-cosmos
 
-### 1. Multi-Environment Deployment
-
-Deploy the same application to dev, staging, and prod namespaces:
+### 2. Install Dependencies
 
 ```bash
-# Install with multi-environment configuration
-helm install my-app ./busybox-chart -f values-multi-env.yaml
-
-# This creates:
-# - Namespaces: my-app-dev, my-app-staging, my-app-prod
-# - Deployments with different replica counts per environment
-# - Services for each deployment
-# - Service accounts per namespace
+cd scripts
+source setup.sh
 ```
 
-### 2. Multi-Tenant Deployment
-
-Deploy to multiple tenant namespaces with different resource allocations:
+### 3. Generate Test Scenarios
 
 ```bash
-# Install with multi-tenant configuration
-helm install tenant-app ./busybox-chart -f values-multi-tenant.yaml
+# Generate all predefined scenarios
+python scenarios.py
 
-# This creates resources in:
-# - tenant-acme (premium tier)
-# - tenant-globex (standard tier)
-# - tenant-initech (premium tier)
+# This creates values files in build/values/ for each scenario
 ```
 
-### 3. Single Namespace (Traditional)
+The convention of the generated values filenames is `values-{release_name}.yaml`,
+where the convention for release name is `np{nodepool_index}-w{workload_id}-r{replica_count}`.
 
-For backward compatibility, disable multi-namespace mode:
+### 4. Run a Test Scenario
 
 ```bash
-# Traditional single-namespace deployment
-helm install my-app ./busybox-chart -f values-single-namespace.yaml --namespace my-namespace
+# Install a scenario (e.g., C2)
+python run-scenario.py C2
+
+# Uninstall a scenario
+python run-scenario.py C2 --uninstall
 ```
 
-### 4. Custom Configuration
+## Framework Architecture
 
-Create your own values file:
+### Core Components
 
-```yaml
-multiNamespace:
-  enabled: true
-  createNamespaces: true
-  namespaces:
-    - name: "frontend"
-      labels:
-        tier: "frontend"
-    - name: "backend"
-      labels:
-        tier: "backend"
+- **`scenarios.py`**: Generates Helm values files for different test scenarios
+- **`run-scenario.py`**: Installs/uninstalls scenarios and collects measurements
+- **`busybox-chart/`**: Helm chart for deploying test workloads
+- **`output/`**: JSON files containing detailed performance measurements
 
-namespaceOverrides:
-  backend:
-    replicaCount: 3
-    resources:
-      requests:
-        cpu: 200m
-        memory: 256Mi
+### Test Scenarios
+
+The official list of scenarios is tracked [in this spreadsheet](https://docs.google.com/spreadsheets/d/1bwdC6Ll_iOYvhCIqxCnHrUGn-GX6dtR2EKRf7zNB-5c/edit).
+
+## Adding New Scenarios
+
+### 1. Edit `scenarios.py`
+
+Add a new scenario to the `SCENARIOS` list:
+
+```python
+Scenario(
+    name="MY_SCENARIO",
+    mechanism=Mechanism.POD_ANTI_AFFINITY,
+    nodepool_count=2,
+    workloads_per_nodepool=[5, 8],
+    replicas_min=10,
+    replicas_max=100,
+)
 ```
 
-## Configuration Options
-
-### Multi-Namespace Settings
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `multiNamespace.enabled` | Enable multi-namespace deployment | `true` |
-| `multiNamespace.createNamespaces` | Auto-create namespaces | `true` |
-| `multiNamespace.namespaces` | List of namespaces to deploy to | See values.yaml |
-
-### Per-Namespace Overrides
-
-Use `namespaceOverrides` to customize settings for specific namespaces:
-
-```yaml
-namespaceOverrides:
-  production:
-    replicaCount: 5
-    resources:
-      requests:
-        cpu: 500m
-        memory: 1Gi
-  development:
-    replicaCount: 1
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-```
-
-## Verification Commands
-
-After deployment, verify the resources:
+### 2. (Optional) Generate Values Files
 
 ```bash
-# Check all namespaces
-kubectl get namespaces | grep -E "(dev|staging|prod)"
-
-# Check deployments across namespaces
-kubectl get deployments --all-namespaces -l app.kubernetes.io/name=busybox-chart
-
-# Check services
-kubectl get services --all-namespaces -l app.kubernetes.io/name=busybox-chart
-
-# Check pods in specific namespace
-kubectl get pods -n my-app-dev -l app.kubernetes.io/instance=my-app
+python scenarios.py
 ```
 
-## Advanced Use Cases
+This creates values files in `build/values/MY_SCENARIO/` with different replica counts and configurations.
 
-### 1. Cross-Namespace Service Discovery
+This is done automatically when running a scenario, but can be useful to do beforehand when creating new scenarios or adjusting the value generation logic.
 
-Services are created in each namespace, so applications can communicate within their namespace or across namespaces using FQDN:
-
-```
-my-app-dev.my-app-dev.svc.cluster.local
-my-app-staging.my-app-staging.svc.cluster.local
-```
-
-### 2. Network Policies
-
-Add namespace-specific network policies:
-
-```yaml
-# In values file
-namespaceOverrides:
-  production:
-    networkPolicy:
-      enabled: true
-      ingress:
-        - from:
-          - namespaceSelector:
-              matchLabels:
-                name: production
-```
-
-### 3. RBAC
-
-Service accounts are created per namespace, enabling namespace-specific RBAC:
+### 3. Run the New Scenario
 
 ```bash
-# Grant permissions to service account in specific namespace
-kubectl create rolebinding my-app-binding \
-  --clusterrole=view \
-  --serviceaccount=production:my-app \
-  --namespace=production
+# Install the scenario
+python run-scenario.py MY_SCENARIO
+
+# Uninstall when done
+python run-scenario.py MY_SCENARIO --uninstall
+
+# Install with a custom prefix on all releases
+python run-scenario.py MY_SCENARIO --release-prefix myusername
 ```
 
-## Cleanup
+## Understanding Output Files
+
+The framework generates detailed JSON measurement files in the `output/` directory. Each file contains:
+
+### Basic Information
+
+- **`args`**: Command-line arguments used
+- **`timestamp`**: When the test was run
+- **`install_time`**: Time taken to install/uninstall
+
+### Performance Metrics
+
+- **`postprocessed`**: Aggregated performance statistics
+  - `jain_fairness_index_*`: Measures how evenly pods are distributed
+  - `coefficient_of_variation_*`: Measures variability in pod distribution
+  - `gini_coefficient_*`: Measures inequality in pod distribution
+  - `node_skew_*`: Maximum difference between most and least loaded nodes
+  - `nosed_used_*`: Statistics about nodes used
+
+### Cluster State
+
+- **`measurements_pre`**: Cluster state before workload deployment
+- **`measurements_post`**: Cluster state after workload deployment
+  - `cluster`: Node counts and eligibility
+  - `deployments`: Per-deployment pod distribution statistics
+
+### Example Output Analysis
+
+```json
+{
+  "postprocessed": {
+    "jain_fairness_index_mean": 0.584,
+    "coefficient_of_variation_mean": 0.906,
+    "gini_coefficient_mean": 0.425,
+    "node_skew_mean": 13.9
+  }
+}
+```
+
+- **Jain Fairness Index**: 0.584 (closer to 1.0 = more fair distribution)
+- **Coefficient of Variation**: 0.906 (lower = more consistent distribution)
+- **Gini Coefficient**: 0.425 (lower = more equal distribution)
+- **Node Skew**: 13.9 (difference between most/least loaded nodes)
+
+## Advanced Usage
+
+### Dry Run Mode
 
 ```bash
-# Uninstall the release (removes all resources across namespaces)
-helm uninstall my-app
-
-# Manually remove namespaces if needed
-kubectl delete namespace my-app-dev my-app-staging my-app-prod
+# Preview what would be installed without actually installing
+python run-scenario.py C2 --dry-run
 ```
 
-## Template Logic
+### Debug Mode
 
-The chart uses several helper templates:
+```bash
+# Enable detailed logging
+python run-scenario.py C2 --debug
+```
 
-- `busybox-chart.namespaces`: Gets list of target namespaces
-- `busybox-chart.replicaCount`: Gets replica count for specific namespace
-- `busybox-chart.resources`: Gets resources for specific namespace
-- `busybox-chart.namespacedName`: Generates namespace-specific resource names
+### Local Template Rendering
 
-This ensures consistent naming and configuration across all resources while allowing per-namespace customization.
+```bash
+# Render Helm templates locally without cluster access
+python run-scenario.py C2 --render-locally
+```
 
-# Helm Approach
+### Skip Installation
 
-1. `helm package`, this will create `busybox-chart-0.1.0.tgz`
-2. (Optional) create `values-my-install.yaml` with any tweakes
-3. `helm install my-busybox-install busybox-chart-0.1.0.tgz --values values-my-install.yaml --namespace my-namepsace --create-namespace --atomic`
-4. Repeat steps 2-3 for additional namespaces/experiment permutations.
-5. Cleanup. `helm uninstall my-busybox-install --namespace my-namespace`
+```bash
+# Take measurements without installing workloads
+python run-scenario.py C2 --skip-install
+```
 
-See `scripts/install.sh` for concrete examples.
+## Helm Chart Details
+
+The `busybox-chart/` directory contains a Helm chart that:
+
+- Deploys busybox containers as test workloads
+- Supports various scheduling mechanisms (node selectors, anti-affinity, etc.)
+- Configures resource requests and limits
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Cluster Connection**: Ensure kubectl is configured correctly. Run `scc -c cosmos-dev-cosmos`.
+2. **Helm Not Found**: Install Helm 3.x and ensure it's in PATH
+3. **Permission Denied**: Ensure your kubeconfig has sufficient permissions
+4. **Resource Limits**: Check cluster has enough resources for test scenarios
+
+## Contributing
+
+When adding new scenarios or mechanisms:
+
+1. Update `generate-values.py` with new scenario definitions
+2. Test with `--dry-run` first
+3. Document the scenario purpose and expected behavior
+4. Update the spreadsheet with new scenario information

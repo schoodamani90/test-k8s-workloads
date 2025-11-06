@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Collects deployment distribution data for a list of namespaces within a cluster.
 
@@ -5,7 +6,7 @@ This is best for analyzing "real" deployments, as opposed to the synthetic ones 
 """
 import logging
 from measurements import gather_cluster_measurements
-from scripts.deploy import verify_cluster
+from deploy import verify_cluster
 
 
 def setup_logging() -> logging.Logger:

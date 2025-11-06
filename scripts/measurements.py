@@ -7,7 +7,7 @@ from kubernetes import client, config
 logger = logging.getLogger(__name__)
 
 # While maximal spread is the ideal, for many of these tests it's not possible to use all nodes.
-# It's also diffcult to filter out nodes that are not eligible to run pods due to taints or being fully committed already.
+# It's also diffcult to filter out nodes that are not eligible to run pods due to taints or being fully utilized.
 # So we can include it when we want to see, but for the most part we'll just ignore them and focus on the distribution
 # among the nodes that got at least one pod.
 INCLUDE_UNUSED_NODES = False
@@ -190,7 +190,8 @@ class Measurements:
 
             if POD_COUNT_GRAPH:
                 # Alternate visualization. Groups nodes by pod count to show how many nodes have that many pods.
-                # The fewer the bars, and the more grouped together, the better. As that indicates a more even distribution.
+                # The fewer the bars, and the more grouped together, the better.
+                # As that indicates a more even distribution.
                 podcount_to_nodecount = {}
                 for pod_count in distribution_info.pod_counts:
                     podcount_to_nodecount[pod_count] = podcount_to_nodecount.get(

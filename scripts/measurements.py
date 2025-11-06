@@ -82,7 +82,9 @@ class DeploymentDistributionData:
         0.3-0.5: Moderate variation
         >0.5: High variation
         """
-        return statistics.stdev(values) / statistics.mean(values) if statistics.mean(values) > 0 else 0
+        if not values or len(values) <= 1 or statistics.mean(values) <= 0:
+            return 0
+        return statistics.stdev(values) / statistics.mean(values)
 
     def _calculate_gini_coefficient(self, values: List[int]):
         """Calculate Gini Coefficient for inequality measurement

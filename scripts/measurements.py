@@ -1,7 +1,8 @@
+from datetime import datetime
 import logging
 import statistics
 import json
-from typing import Dict, List
+from typing import Dict, Iterable, List, Optional
 from kubernetes import client, config
 
 logger = logging.getLogger(__name__)
@@ -158,13 +159,15 @@ class Measurements:
 
     """Class representing measurements."""
 
-    def __init__(self, cluster: ClusterNodeData, deployments: Dict[str, DeploymentDistributionData]):
+    def __init__(self, cluster: ClusterNodeData, deployments: Dict[str, DeploymentDistributionData], timestamp: Optional[str] = None):
+        self.timestamp = timestamp or datetime.now().isoformat(timespec='seconds')
         self.cluster = cluster
         self.deployments = deployments
 
     def to_dict(self) -> dict:
         """Convert Measurements to dictionary format."""
         return {
+            "timestamp": self.timestamp,
             "cluster": self.cluster._to_dict(),
             "deployments": {name: data._to_dict(round_values=True) for name, data in self.deployments.items()},
         }
@@ -212,7 +215,7 @@ class Measurements:
                 f"[{deployment_name}] Deployment data: {distribution_info}")
 
 
-def gather_cluster_measurements(namespaces: List[str] = []) -> Measurements:
+def gather_cluster_measurements(namespaces: Iterable[str] = []) -> Measurements:
     node_info = get_node_info()
     deployments: Dict[str, DeploymentDistributionData] = {}
     for namespace in namespaces:
@@ -282,6 +285,12 @@ def gather_deployment_distribution_data(namespace: str, cluster_node_count: int)
         # Match the selector labels from the Helm chart template.
         deployment = apps_v1.read_namespaced_deployment(
             deployment_name, namespace=namespace)
+
+        if deployment.spec.replicas <= 1:
+            # 0 or 1 replicas are not relevant and only make it harder to calculate statistics.
+            logger.info(f"[{deployment_name}] Deployment has only {deployment.spec.replicas} replicas, skipping")
+            continue
+
         label_selector = ",".join(
             [f"{key}={value}" for key, value in deployment.spec.selector.match_labels.items()])
         # Ignore anything not running. We should have verified this prior to gathering data.

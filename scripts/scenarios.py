@@ -206,13 +206,14 @@ def generate_values(scenario: Scenario | str) -> None:
     if isinstance(scenario, str):
         scenario = get_scenario(scenario)
 
+    os.makedirs(f"{VALUES_DIR}/{scenario.name}", exist_ok=True)
     default_values = yaml.safe_load(open("busybox-chart/values.yaml"))
 
     for nodepool_index in range(scenario.nodepools):
         replica_counts = determine_replica_counts_for_nodepool(scenario, nodepool_index)
         for workload_id in range(scenario.workloads_per_nodepool[nodepool_index % len(scenario.workloads_per_nodepool)]):
             replica_count = replica_counts[workload_id % len(replica_counts)]
-            release_name = f"np{nodepool_index}-w{workload_id}-r{replica_count}"
+            release_name = f"np{nodepool_index}-w{workload_id}"
 
             values = default_values.copy()
 
@@ -245,21 +246,22 @@ def generate_values(scenario: Scenario | str) -> None:
                                 'podAffinityTerm': {
                                     'topologyKey': 'kubernetes.io/hostname',
                                     'labelSelector': {
-                                    'matchExpressions': [
-                                        {
-                                            'key': 'app.kubernetes.io/name',
-                                            'operator': 'In',
-                                            'values': ['busybox-chart']
-                                        },
-                                        {
-                                            'key': 'app.kubernetes.io/instance',
-                                            'operator': 'In',
-                                            'values': [release_name]
-                                        }
-                                    ]
-                                    # Can use by default in 1.33 and later
-                                    #'matchLabelKeys': ['pod-template-hash']
-                                },
+                                        'matchExpressions': [
+                                            {
+                                                'key': 'app.kubernetes.io/name',
+                                                'operator': 'In',
+                                                'values': ['busybox-chart']
+                                            },
+                                            {
+                                                'key': 'app.kubernetes.io/instance',
+                                                'operator': 'In',
+                                                'values': [release_name]
+                                            }
+                                        ]
+                                        # Can use by default in 1.33 and later.
+                                        # On 1.29 this would need to be enabled at the cluster level.
+                                        # 'matchLabelKeys': ['pod-template-hash']
+                                    },
                                 },
                                 'weight': 1
                             }
@@ -270,8 +272,13 @@ def generate_values(scenario: Scenario | str) -> None:
             else:
                 raise ValueError(f"Invalid mechanism: {scenario.mechanism.value}")
 
-            os.makedirs(f"{VALUES_DIR}/{scenario.name}", exist_ok=True)
             yaml.dump(values, open(f"{VALUES_DIR}/{scenario.name}/values-{release_name}.yaml", "w"))
+
+    if scenario.ballast_pods > 0:
+        # Generate the ballast values file
+        ballast_values = default_values.copy()
+        ballast_values['replicaCount'] = scenario.ballast_pods
+        yaml.dump(ballast_values, open(f"{VALUES_DIR}/{scenario.name}/values-ballast.yaml", "w"))
 
 
 def determine_replica_counts_for_nodepool(scenario: Scenario, nodepool_index: int) -> List[int]:

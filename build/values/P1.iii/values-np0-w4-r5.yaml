@@ -7,7 +7,11 @@ affinity:
           - key: app.kubernetes.io/name
             operator: In
             values:
-            - busybox
+            - busybox-chart
+          - key: app.kubernetes.io/instance
+            operator: In
+            values:
+            - np0-w4-r5
         topologyKey: kubernetes.io/hostname
       weight: 1
 nodeSelector: {}

@@ -66,6 +66,7 @@ class DeploymentDistributionData:
         self.max_pods = max(pod_counts) if pod_counts else 0
         self.min_pods = min(pod_counts) if pod_counts else 0
         self.node_skew = self.max_pods - self.min_pods
+        self.node_skew_percentage = self.node_skew / self.max_pods if self.max_pods > 0 else 0
         self.mean_pods = statistics.mean(pod_counts) if pod_counts else 0
         self.median_pods = statistics.median(pod_counts) if pod_counts else 0
         self.coefficient_of_variation = self._calculate_coefficient_of_variation(
@@ -137,6 +138,7 @@ class DeploymentDistributionData:
             'max_pods': self.max_pods,
             'min_pods': self.min_pods,
             'node_skew': self.node_skew,
+            'node_skew_percentage': self.node_skew_percentage,
             'mean_pods': round(self.mean_pods, 3) if round_values else self.mean_pods,
             'median_pods': round(self.median_pods, 3) if round_values else self.median_pods,
             'coefficient_of_variation': round(self.coefficient_of_variation, 3) if round_values else self.coefficient_of_variation,

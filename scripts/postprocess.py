@@ -39,11 +39,16 @@ class PostprocessedData:
         self.gini_coefficient_mean = statistics.mean(gci_values)
         self.gini_coefficient_median = statistics.median(gci_values)
 
-        # determine mean, median, and max skew of node_skew
+        # determine mean, median, and max skew of node_skew (raw and percentage)
         node_skew_values = [deployment.node_skew for deployment in measurements_post.deployments.values()]
         self.node_skew_mean = statistics.mean(node_skew_values)
         self.node_skew_median = statistics.median(node_skew_values)
         self.node_skew_max = max(node_skew_values)
+
+        node_skew_percentage_values = [deployment.node_skew_percentage for deployment in measurements_post.deployments.values()]
+        self.node_skew_percentage_mean = statistics.mean(node_skew_percentage_values)
+        self.node_skew_percentage_median = statistics.median(node_skew_percentage_values)
+        self.node_skew_percentage_max = max(node_skew_percentage_values)
 
         # more metrics on node usage
         nosed_used_values = [deployment.nodes_used for deployment in measurements_post.deployments.values()]
@@ -68,6 +73,10 @@ class PostprocessedData:
             'node_skew_mean': round(self.node_skew_mean, 2),
             'node_skew_median': self.node_skew_median,
             'node_skew_max': self.node_skew_max,
+
+            'node_skew_percentage_mean': round(self.node_skew_percentage_mean, 2),
+            'node_skew_percentage_median': self.node_skew_percentage_median,
+            'node_skew_percentage_max': self.node_skew_percentage_max,
 
             'nosed_used_avg': round(self.nosed_used_avg, 2),
             'nosed_used_median': round(self.nosed_used_median, 2),

@@ -140,7 +140,7 @@ def main():
             if not args.no_print:
                 logger.info("Post-install measurements:")
                 measurements_post.print()
-            postprocessed_data = PostprocessedData(measurements_pre, measurements_post).to_dict()
+            postprocessed_data = PostprocessedData(measurements_pre, measurements_post)
             if not args.no_print:
                 logger.info(f"Postprocessed data: {postprocessed_data}")
 

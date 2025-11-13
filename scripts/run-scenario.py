@@ -1,52 +1,47 @@
 #!/usr/bin/env python3
 
 import argparse
-import glob
-import json
 import logging
-import os
 import sys
 import time
 
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Dict, Tuple
 
+import deploy
 import scenarios
-from measurements import gather_cluster_measurements
+import measurements
+import utils
 from postprocess import PostprocessedData
-from deploy import restart_deployments, verify_install, uninstall_scenario, install_scenario, verify_cluster, render_templates
 
 
 DEFAULT_RELEASE_PREFIX = "bw-"
 COSMOS_DEV_COSMOS_CONTEXT_NAME = "arn:aws:eks:us-east-1:843722649052:cluster/cosmos-dev-cosmos"
-VALUES_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/build/values"
-TEMPLATES_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/build/templates"
-MEASUREMENTS_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/output"
 
 RESTART_DELAY = 60
 ROLLOUT_WAIT = 300
 
 
-def setup_logging() -> logging.Logger:
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
-    logger = logging.getLogger(__name__)
-    return logger
+logger = logging.getLogger(__name__)
 
-logger = setup_logging()
 
-def parse_args():
+def parse_args() -> Tuple[argparse.Namespace, Dict[str, Path]]:
     parser = argparse.ArgumentParser(description="Install a scenario")
     parser.add_argument("scenario", type=str, help="The name of the scenario to install", choices=get_scenarios())
     parser.add_argument("--debug", "-d", action="store_true", help="Debug mode")
     parser.add_argument("--no-print", "-np", action="store_true", help="Do not print to console")
-    parser.add_argument("--release-prefix", "-rp", type=str, help="The prefix to use for the release name. To distinguish between dfferent users running the same scenario, use a different prefix.", default=DEFAULT_RELEASE_PREFIX)
+    parser.add_argument("--release-prefix", "-rp", type=str,
+                        help="Prefix all generated release names with this string", default=DEFAULT_RELEASE_PREFIX)
     parser.add_argument("--dry-run", action="store_true", help="Do a dry run")
     parser.add_argument("--render-locally", action="store_true", help="Render the templates locally")
     parser.add_argument("--skip-value-generation", action="store_true", help="Skip value generation")
 
     install_group = parser.add_mutually_exclusive_group(required=False)
-    install_group.add_argument("--uninstall", "-u", action="store_true", help="Uninstall the scenario instead of installing it")
-    install_group.add_argument("--skip-install", "-s", action="store_true", help="Take measurements without performing the install. Also skips restarts.")
+    install_group.add_argument("--uninstall", "-u", action="store_true",
+                               help="Uninstall the scenario instead of installing it")
+    install_group.add_argument("--skip-install", "-s", action="store_true",
+                               help="Take measurements without performing the install. Also skips restarts.")
 
     args = parser.parse_args()
     if args.debug:
@@ -62,17 +57,16 @@ def parse_args():
         parser.error(f"Scenario {args.scenario} not found")
 
     # Sanity check that generation succeeded as expected
-    scenario_dir = f"{VALUES_DIR}/{args.scenario}"
-    if not os.path.exists(scenario_dir):
+    scenario_dir = utils.VALUES_DIR / args.scenario.name
+    if not scenario_dir.exists():
         parser.error(f"Scenario directory '{scenario_dir}' does not exist")
 
-    values_pattern = f"{VALUES_DIR}/{args.scenario}/*.yaml"
-    values_files = glob.glob(values_pattern)
+    values_files = list(scenario_dir.glob("*.yaml"))
 
     if not values_files:
-        parser.error(f"No .yaml files found in {scenario_dir}")
+        parser.error(f"No .yaml files found in scenario directory {scenario_dir.name}")
 
-    release_to_values_path = {}
+    release_to_values_path: Dict[str, Path] = {}
     release_names = []
     for values_file in values_files:
         values_path = Path(values_file)
@@ -83,91 +77,83 @@ def parse_args():
 
     return args, release_to_values_path
 
+
 def get_scenarios():
     return [scenario.name for scenario in scenarios.SCENARIOS]
 
+
 def main():
+    utils.setup_logging()
+    args = None
     try:
         args, release_to_values = parse_args()
 
         logger.info(f"Scenario {args.scenario} loaded. {len(release_to_values)} releases")
         logger.debug(f"Release names: {release_to_values.keys()}")
 
-        verify_cluster(COSMOS_DEV_COSMOS_CONTEXT_NAME)
+        deploy.verify_cluster(COSMOS_DEV_COSMOS_CONTEXT_NAME)
 
-        measurements_pre = gather_cluster_measurements(release_to_values.keys())
+        measurements_pre = measurements.gather_cluster_measurements(release_to_values.keys())
         if (not args.no_print) and (not args.skip_install):
-            logger.info(f"Pre-install measurements:")
+            logger.info("Pre-install measurements:")
             measurements_pre.print()
 
         if args.render_locally:
             logger.info(f"Rendering templates locally for {args.scenario}")
             for release_name, values_path in release_to_values.items():
-                render_templates(release_name, values_path, Path(TEMPLATES_DIR), debug=args.debug)
+                deploy.render_templates(release_name, values_path, utils.TEMPLATES_DIR, debug=args.debug)
 
         install_time = None
         if not args.skip_install:
             start_time = datetime.now()
             if args.uninstall:
                 logger.info(f"Uninstalling {args.scenario}")
-                uninstall_scenario(release_to_values.keys(), dry_run=args.dry_run, debug=args.debug)
+                deploy.uninstall_scenario(release_to_values.keys(), dry_run=args.dry_run, debug=args.debug)
             else:
                 logger.info(f"Installing {args.scenario}")
-                install_scenario(release_to_values, dry_run=args.dry_run, debug=args.debug)
+                deploy.install_scenario(release_to_values, dry_run=args.dry_run, debug=args.debug)
             end_time = datetime.now()
             install_time = timedelta(seconds=round((end_time - start_time).total_seconds()))
             logger.info(f"{'Uninstall' if args.uninstall else 'Install'} time: {install_time}s")
 
         if not args.uninstall:
 
-            verify_install(release_to_values.keys())
-            
-            measurements_mid = gather_cluster_measurements(release_to_values.keys())
+            deploy.verify_install(release_to_values.keys())
+
+            measurements_mid = measurements.gather_cluster_measurements(release_to_values.keys())
 
             if args.scenario.restart_count > 0 and not args.skip_install:
                 logger.info(f"Restarting deployments {release_to_values.keys()} {args.scenario.restart_count} times")
                 for restart_index in range(args.scenario.restart_count):
                     logger.info(f"Beginning restart {restart_index + 1}/{args.scenario.restart_count}")
-                    restart_deployments(release_to_values.keys())
+                    deploy.restart_deployments(release_to_values.keys())
                     # From experimentation, rollouts take a bit longer than the initial install
                     logger.info(f"Waiting {ROLLOUT_WAIT} seconds for rollouts to complete")
                     time.sleep(ROLLOUT_WAIT)
-                    verify_install(release_to_values.keys())
+                    deploy.verify_install(release_to_values.keys())
                     logger.info(f"Completed restart {restart_index + 1}/{args.scenario.restart_count}")
                     time.sleep(RESTART_DELAY)
-                logger.info(f"Restarts complete")
+                logger.info("Restarts complete")
 
             # Gather post-install measurements
-            measurements_post = gather_cluster_measurements(release_to_values.keys())
+            measurements_post = measurements.gather_cluster_measurements(release_to_values.keys())
             if not args.no_print:
-                logger.info(f"Post-install measurements:")
+                logger.info("Post-install measurements:")
                 measurements_post.print()
             postprocessed_data = PostprocessedData(measurements_pre, measurements_post).to_dict()
             if not args.no_print:
                 logger.info(f"Postprocessed data: {postprocessed_data}")
 
-            timestamp = datetime.now().isoformat(timespec='seconds')
-            measurements_file = f"{MEASUREMENTS_DIR}/{args.scenario}/{args.scenario}-{timestamp}.json"
-            logger.info(f"Saving measurements to {measurements_file}")
-            os.makedirs(f"{MEASUREMENTS_DIR}/{args.scenario}", exist_ok=True)
-            with open(measurements_file, 'w') as f:
-                args_dict = vars(args)
-                args_dict["scenario"] = args.scenario.name
-                data = {
-                    "args": args_dict,
-                    "timestamp": timestamp,
-                    "install_time": str(install_time),
-                    "postprocessed": postprocessed_data,
-                    "measurements_pre": measurements_pre.to_dict(),
-                    "measurements_mid": measurements_mid.to_dict(),
-                    "measurements_post": measurements_post.to_dict(),
-                }
-                json.dump(data, f, indent=4)
-
+            utils.write_measurements(args.scenario.name, args, install_time, postprocessed_data,
+                                     [measurements_pre, measurements_mid, measurements_post])
         logger.info("Done")
     except Exception:
-        logger.exception(f"Error running scenario {args.scenario}")
+        if args and args.scenario:
+            logger.exception(f"Error running scenario {args.scenario}")
+        else:
+            logger.exception("Unexpected error occurred")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

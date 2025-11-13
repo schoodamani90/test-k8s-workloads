@@ -1,7 +1,7 @@
 import logging
 import time
 
-from typing import Dict, List
+from typing import Dict, Iterable
 from pathlib import Path
 
 from kubernetes import client, config
@@ -24,7 +24,7 @@ def install_scenario(release_to_values: Dict[str, Path], dry_run: bool = False, 
     run_commands(install_cmds, capture_output=not debug)
 
 
-def uninstall_scenario(release_names: List[str], dry_run: bool = False, debug: bool = False):
+def uninstall_scenario(release_names: Iterable[str], dry_run: bool = False, debug: bool = False):
     uninstall_cmds = []
     for release_name in release_names:
         uninstall_cmd = f"helm uninstall {release_name} --namespace {release_name} --ignore-not-found --wait --timeout 5m {'--debug' if debug else ''}{' --dry-run' if dry_run else ''}"
@@ -33,7 +33,7 @@ def uninstall_scenario(release_names: List[str], dry_run: bool = False, debug: b
     run_commands(uninstall_cmds, capture_output=not debug)
 
 
-def verify_install(release_names: List[str]) -> bool:
+def verify_install(release_names: Iterable[str]) -> bool:
     """
     Verify that all releases have successfully started
     We install with --wait, so this should be somewhat redundant, but want to
@@ -105,7 +105,7 @@ def render_templates(release_name: str, values_path: Path, output_dir: Path, deb
     run_command(template_cmd, capture_output=not debug)
 
 
-def restart_deployments(release_names: List[str], debug: bool = False):
+def restart_deployments(release_names: Iterable[str], debug: bool = False):
     """
     Restart the deployments for the given release names
     """

@@ -5,24 +5,26 @@ import logging
 import os
 from pathlib import Path
 import statistics
-from typing import Tuple
+from typing import Optional, Tuple
 
 from measurements import Measurements
 
 logger = logging.getLogger(__name__)
 
+
 class PostprocessedData:
 
-    @staticmethod
-    def from_dict(data: dict) -> 'PostprocessedData':
-        return PostprocessedData(cluster_scaled=data['cluster_scaled'], jain_fairness_index_mean=data['jain_fairness_index_mean'], jain_fairness_index_median=data['jain_fairness_index_median'], coefficient_of_variation_mean=data['coefficient_of_variation_mean'], coefficient_of_variation_median=data['coefficient_of_variation_median'], gini_coefficient_mean=data['gini_coefficient_mean'], gini_coefficient_median=data['gini_coefficient_median'], node_skew_mean=data['node_skew_mean'], node_skew_median=data['node_skew_median'], node_skew_max=data['node_skew_max'])
+    def __init__(self, measurements_pre: Optional[Measurements], measurements_post: Measurements):
 
-    def __init__(self, measurements_pre: Measurements, measurements_post: Measurements):
-
-        # report if scaling occurred
-        self.scale_direction = 'up' if measurements_post.cluster.node_count > measurements_pre.cluster.node_count else 'down' if measurements_post.cluster.node_count < measurements_pre.cluster.node_count else 'none'
-        self.scale_amount = measurements_post.cluster.node_count - measurements_pre.cluster.node_count
-        self.scale_percentage = abs(self.scale_amount) / measurements_pre.cluster.node_count * 100
+        if measurements_pre:
+            # report if scaling occurred
+            self.scale_direction = 'up' if measurements_post.cluster.node_count > measurements_pre.cluster.node_count else 'down' if measurements_post.cluster.node_count < measurements_pre.cluster.node_count else 'none'
+            self.scale_amount = measurements_post.cluster.node_count - measurements_pre.cluster.node_count
+            self.scale_percentage = abs(self.scale_amount) / measurements_pre.cluster.node_count * 100
+        else:
+            self.scale_direction = None
+            self.scale_amount = None
+            self.scale_percentage = None
 
         # calculate mean+median of jain fairness index, coefficient of variation, gini coefficient
         jfi_values = [deployment.jain_fairness_index for deployment in measurements_post.deployments.values()]
@@ -54,7 +56,7 @@ class PostprocessedData:
         return {
             'scale_direction': self.scale_direction,
             'scale_amount': self.scale_amount,
-            'scale_percentage': round(self.scale_percentage, 1),
+            'scale_percentage': round(self.scale_percentage, 1) if self.scale_percentage else None,
 
             'jain_fairness_index_mean': round(self.jain_fairness_index_mean, 3),
             'jain_fairness_index_median': round(self.jain_fairness_index_median, 3),
@@ -76,6 +78,7 @@ class PostprocessedData:
     def __str__(self) -> str:
         return json.dumps(self.to_dict())
 
+
 def fetch_measurements(measurements_file: Path) -> Tuple[Measurements, Measurements]:
     """
     Postprocess the measurements file.
@@ -91,6 +94,7 @@ def fetch_measurements(measurements_file: Path) -> Tuple[Measurements, Measureme
     except json.JSONDecodeError as e:
         raise Exception(f"Error parsing measurements file {measurements_file}") from e
 
+
 if __name__ == "__main__":
     # For testing
     logging.basicConfig(level=logging.INFO)
@@ -98,7 +102,6 @@ if __name__ == "__main__":
     MEASUREMENTS_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/output"
     measurements_pattern = f"{MEASUREMENTS_DIR}/**/*.json"
     measurements_files = glob.glob(measurements_pattern)
-
 
     for measurements_file in measurements_files:
         pre_measurements, post_measurements = fetch_measurements(Path(measurements_file))

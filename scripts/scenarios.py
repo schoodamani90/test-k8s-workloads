@@ -1,19 +1,19 @@
 #! /usr/bin/env python3
 
-from enum import Enum
 import logging
-import os
-from typing import List, Tuple
 import yaml
+
+from enum import Enum
+from pathlib import Path
+from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
 
 NODEPOOL_LABEL = "workload-isolation-test-nodepool"
 NODEPOOL_VALUE_PREFIX = "workload-isolation-test-nodepool-"
 
-VALUES_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/build/values"
-if not os.path.exists(VALUES_DIR):
-    os.makedirs(VALUES_DIR)
+VALUES_DIR = Path(__file__).parent.parent / "build" / "values"
+VALUES_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class Mechanism(Enum):
@@ -48,12 +48,12 @@ class Scenario:
                  replicas: Tuple[int, int] | int = 2,
                  nodepools: int = 1,
                  ballast_pods: int = 0):
-        self.name = name
-        self.mechanism = mechanism
-        self.nodepools = nodepools
-        self.workloads_per_nodepool = workloads_per_nodepool if isinstance(workloads_per_nodepool, list) else [workloads_per_nodepool]
-        self.replicas = replicas if isinstance(replicas, tuple) else (replicas, replicas)
-        self.ballast_pods = ballast_pods
+        self.name: str = name
+        self.mechanism: Mechanism = mechanism
+        self.nodepools: int = nodepools
+        self.workloads_per_nodepool: List[int] = workloads_per_nodepool if isinstance(workloads_per_nodepool, list) else [workloads_per_nodepool]
+        self.replicas: Tuple[int, int] = replicas if isinstance(replicas, tuple) else (replicas, replicas)
+        self.ballast_pods: int = ballast_pods
 
     def __str__(self):
         return self.name
@@ -206,7 +206,7 @@ def generate_values(scenario: Scenario | str) -> None:
     if isinstance(scenario, str):
         scenario = get_scenario(scenario)
 
-    os.makedirs(f"{VALUES_DIR}/{scenario.name}", exist_ok=True)
+    (VALUES_DIR / scenario.name).mkdir(parents=True, exist_ok=True)
     default_values = yaml.safe_load(open("busybox-chart/values.yaml"))
 
     for nodepool_index in range(scenario.nodepools):

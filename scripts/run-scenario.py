@@ -44,7 +44,9 @@ class Action(Enum):
 
 
 class ExperimentResult:
-    def __init__(self, args: argparse.Namespace, start_time: datetime, elapsed_time: timedelta, postprocessed_data: PostprocessedData, measurements_taken: List[measurements.Measurements]):
+    def __init__(self, args: argparse.Namespace, start_time: datetime, elapsed_time: timedelta,
+                 postprocessed_data: PostprocessedData, measurements_taken: List[measurements.Measurements],
+                 cluster_name: str):
         self.args = args
         self.scenario = args.scenario
         self.action = args.action
@@ -144,7 +146,8 @@ def main():
         if args.render_locally:
             logger.info(f"Rendering templates locally for {args.scenario}")
             for release_name, values_path in release_to_values.items():
-                deploy.render_templates(release_name, values_path, args.namespace, utils.TEMPLATES_DIR, debug=args.debug)
+                deploy.render_templates(release_name, values_path, args.namespace, utils.TEMPLATES_DIR,
+                                        debug=args.debug)
 
         deploy.verify_cluster(COSMOS_DEV_COSMOS_CONTEXT_NAME)
 
@@ -198,6 +201,7 @@ def perform_action(args: argparse.Namespace, release_to_values: Dict[str, Path])
         raise ValueError(f"Invalid action: {args.action}")
     end_time = datetime.now()
     return end_time - start_time
+
 
 if __name__ == "__main__":
     main()

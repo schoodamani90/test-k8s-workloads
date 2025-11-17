@@ -25,14 +25,14 @@ def setup_logging():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 
 
-def run_commands(cmds: List[str], capture_output: bool = True):
+def run_commands(cmds: List[str], dry_run: bool = False, capture_output: bool = True):
     """
     Run a list of shell commands in parallel and wait for all to complete
     """
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = [
-            executor.submit(run_command, cmd, capture_output=capture_output)
+            executor.submit(run_command, cmd, dry_run=dry_run, capture_output=capture_output)
             for cmd in cmds
         ]
         for future in concurrent.futures.as_completed(futures):
@@ -40,16 +40,18 @@ def run_commands(cmds: List[str], capture_output: bool = True):
     return results
 
 
-def run_command(cmd, check=True, capture_output=True, text=True):
+def run_command(cmd, dry_run: bool = False, check=True, capture_output=True, text=True):
     """Run a shell command and return the result"""
     try:
+        if dry_run:
+            cmd = f"echo [DRY-RUN] '{cmd}'"
         result = subprocess.run(cmd, shell=True, check=check, capture_output=capture_output, text=text)
         return result
     except subprocess.CalledProcessError as e:
         raise Exception(f"Error running command '{cmd}'") from e
 
 
-def write_measurements(file_basename, args: argparse.Namespace, install_time: Optional[timedelta], postprocessed_data: PostprocessedData, measurements_taken: List[Measurements]):
+def write_measurements(file_basename, args: argparse.Namespace, start_time: datetime, elapsed_time: Optional[timedelta], postprocessed_data: PostprocessedData, measurements_taken: List[Measurements]):
     timestamp = datetime.now().isoformat(timespec='seconds')
     output_dir = OUTPUT_DIR / file_basename
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -61,10 +63,10 @@ def write_measurements(file_basename, args: argparse.Namespace, install_time: Op
             args_dict["scenario"] = args.scenario.name
         data = {
             "args": args_dict,
-            "timestamp": timestamp,
+            "start_time": start_time.isoformat(timespec='seconds'),
             "postprocessed": postprocessed_data.to_dict(),
             "measurements": [m.to_dict() for m in measurements_taken],
         }
-        if install_time:
-            data["install_time"] = str(install_time)
+        if elapsed_time:
+            data["elapsed_time"] = str(elapsed_time)
         json.dump(data, f, indent=4)

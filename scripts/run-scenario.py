@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+from enum import Enum
 import logging
+import json
 import sys
-import time
 
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import deploy
 import scenarios
@@ -26,22 +27,71 @@ ROLLOUT_WAIT = 300
 logger = logging.getLogger(__name__)
 
 
+class Action(Enum):
+    INSTALL = "install"
+    UNINSTALL = "uninstall"
+    RESTART = "restart"
+    NONE = "none"
+
+    def __str__(self):
+        return self.value
+
+    def __repr__(self):
+        return self.value
+
+    def __eq__(self, other):
+        return self.value == other.value
+
+
+class ExperimentResult:
+    def __init__(self, args: argparse.Namespace, start_time: datetime, elapsed_time: timedelta, postprocessed_data: PostprocessedData, measurements_taken: List[measurements.Measurements]):
+        self.args = args
+        self.scenario = args.scenario
+        self.action = args.action
+        self.start_time = start_time
+        self.elapsed_time = elapsed_time
+        self.postprocessed_data = postprocessed_data
+        self.measurements_taken = measurements_taken
+
+    def to_dict(self) -> dict:
+        return {
+            "args": self.args.to_dict(),
+            "start_time": self.start_time.isoformat(timespec='seconds'),
+            "action": self.action.value,
+            "scenario": self.scenario.name,
+            "elapsed_time": self.elapsed_time.total_seconds(),
+            "postprocessed_data": self.postprocessed_data.to_dict(),
+            "measurements_taken": [m.to_dict() for m in self.measurements_taken],
+        }
+
+    def __str__(self) -> str:
+        return json.dumps(self.to_dict())
+
+
 def parse_args() -> Tuple[argparse.Namespace, Dict[str, Path]]:
     parser = argparse.ArgumentParser(description="Install a scenario")
     parser.add_argument("scenario", type=str, help="The name of the scenario to install", choices=get_scenarios())
+
+    # General arguments
     parser.add_argument("--debug", "-d", action="store_true", help="Debug mode")
-    parser.add_argument("--no-print", "-np", action="store_true", help="Do not print to console")
+    parser.add_argument("--no-print", "-np", action="store_true",
+                        help="Do not include measurement visualizations in the console output")
+    parser.add_argument("--dry-run", action="store_true", help="Do a dry run")
+
+    # Local template rendering arguments
+    parser.add_argument("--render-locally", action="store_true", help="Render the templates locally")
+    parser.add_argument("--skip-value-generation", action="store_true",
+                        help="Skip value generation. Useful for testing manually crafted values files.")
+
+    # Install modification arguments
+    parser.add_argument("--namespace", "-ns", required=True, type=str,
+                        help="The namespace to install the scenario into")
     parser.add_argument("--release-prefix", "-rp", type=str,
                         help="Prefix all generated release names with this string", default=DEFAULT_RELEASE_PREFIX)
-    parser.add_argument("--dry-run", action="store_true", help="Do a dry run")
-    parser.add_argument("--render-locally", action="store_true", help="Render the templates locally")
-    parser.add_argument("--skip-value-generation", action="store_true", help="Skip value generation")
 
-    install_group = parser.add_mutually_exclusive_group(required=False)
-    install_group.add_argument("--uninstall", "-u", action="store_true",
-                               help="Uninstall the scenario instead of installing it")
-    install_group.add_argument("--skip-install", "-s", action="store_true",
-                               help="Take measurements without performing the install. Also skips restarts.")
+    # Action arguments
+    parser.add_argument("--action", "-a", type=Action, choices=list(Action),
+                        help="The action to perform", default=Action.INSTALL)
 
     args = parser.parse_args()
     if args.debug:
@@ -88,64 +138,37 @@ def main():
     try:
         args, release_to_values = parse_args()
 
-        logger.info(f"Scenario {args.scenario} loaded. {len(release_to_values)} releases")
+        logger.info(f"Scenario {args.scenario} loaded. {len(release_to_values)} releases. Action: {args.action}")
         logger.debug(f"Release names: {release_to_values.keys()}")
-
-        deploy.verify_cluster(COSMOS_DEV_COSMOS_CONTEXT_NAME)
-
-        measurements_pre = measurements.gather_cluster_measurements(release_to_values.keys())
-        if (not args.no_print) and (not args.skip_install):
-            logger.info("Pre-install measurements:")
-            measurements_pre.print()
 
         if args.render_locally:
             logger.info(f"Rendering templates locally for {args.scenario}")
             for release_name, values_path in release_to_values.items():
-                deploy.render_templates(release_name, values_path, utils.TEMPLATES_DIR, debug=args.debug)
+                deploy.render_templates(release_name, values_path, args.namespace, utils.TEMPLATES_DIR, debug=args.debug)
 
-        install_time = None
-        if not args.skip_install:
-            start_time = datetime.now()
-            if args.uninstall:
-                logger.info(f"Uninstalling {args.scenario}")
-                deploy.uninstall_scenario(release_to_values.keys(), dry_run=args.dry_run, debug=args.debug)
-            else:
-                logger.info(f"Installing {args.scenario}")
-                deploy.install_scenario(release_to_values, dry_run=args.dry_run, debug=args.debug)
-            end_time = datetime.now()
-            install_time = timedelta(seconds=round((end_time - start_time).total_seconds()))
-            logger.info(f"{'Uninstall' if args.uninstall else 'Install'} time: {install_time}s")
+        deploy.verify_cluster(COSMOS_DEV_COSMOS_CONTEXT_NAME)
 
-        if not args.uninstall:
+        measurements_pre = measurements.gather_cluster_measurements(release_to_values.keys())
+        if not args.no_print:
+            logger.info("Pre-action measurements:")
+            measurements_pre.print()
 
-            deploy.verify_install(release_to_values.keys())
+        start_time = datetime.now()
+        elapsed_time = perform_action(args, release_to_values)
+        logger.info(f"{args.action.value} took {elapsed_time}")
 
-            measurements_mid = measurements.gather_cluster_measurements(release_to_values.keys())
+        # Gather post-install measurements
+        measurements_post = measurements.gather_cluster_measurements(release_to_values.keys())
+        if not args.no_print:
+            logger.info("Post-action measurements:")
+            measurements_post.print()
+        postprocessed_data = PostprocessedData(measurements_pre, measurements_post)
+        if not args.no_print:
+            logger.info(f"Postprocessed data: {postprocessed_data}")
 
-            if args.scenario.restart_count > 0 and not args.skip_install:
-                logger.info(f"Restarting deployments {release_to_values.keys()} {args.scenario.restart_count} times")
-                for restart_index in range(args.scenario.restart_count):
-                    logger.info(f"Beginning restart {restart_index + 1}/{args.scenario.restart_count}")
-                    deploy.restart_deployments(release_to_values.keys())
-                    # From experimentation, rollouts take a bit longer than the initial install
-                    logger.info(f"Waiting {ROLLOUT_WAIT} seconds for rollouts to complete")
-                    time.sleep(ROLLOUT_WAIT)
-                    deploy.verify_install(release_to_values.keys())
-                    logger.info(f"Completed restart {restart_index + 1}/{args.scenario.restart_count}")
-                    time.sleep(RESTART_DELAY)
-                logger.info("Restarts complete")
+        utils.write_measurements(args.scenario.name, args, start_time, elapsed_time, postprocessed_data,
+                                 [measurements_pre, measurements_post])
 
-            # Gather post-install measurements
-            measurements_post = measurements.gather_cluster_measurements(release_to_values.keys())
-            if not args.no_print:
-                logger.info("Post-install measurements:")
-                measurements_post.print()
-            postprocessed_data = PostprocessedData(measurements_pre, measurements_post)
-            if not args.no_print:
-                logger.info(f"Postprocessed data: {postprocessed_data}")
-
-            utils.write_measurements(args.scenario.name, args, install_time, postprocessed_data,
-                                     [measurements_pre, measurements_mid, measurements_post])
         logger.info("Done")
     except Exception:
         if args and args.scenario:
@@ -154,6 +177,27 @@ def main():
             logger.exception("Unexpected error occurred")
         sys.exit(1)
 
+
+def perform_action(args: argparse.Namespace, release_to_values: Dict[str, Path]) -> timedelta:
+    start_time = datetime.now()
+    if args.action == Action.INSTALL:
+        deploy.install_scenario(release_to_values, args.namespace, dry_run=args.dry_run, debug=args.debug)
+        # Wait for pods to start
+        if not args.dry_run:
+            deploy.verify_install(release_to_values.keys(), args.namespace)
+    elif args.action == Action.UNINSTALL:
+        deploy.uninstall_scenario(release_to_values.keys(), args.namespace, dry_run=args.dry_run, debug=args.debug)
+    elif args.action == Action.RESTART:
+        deploy.restart_deployments(release_to_values.keys(), args.namespace, dry_run=args.dry_run, debug=args.debug)
+        # Wait for rollouts to complete
+        if not args.dry_run:
+            deploy.verify_install(release_to_values.keys(), args.namespace)
+    elif args.action == Action.NONE:
+        logger.info("No action specified. Skipping.")
+    else:
+        raise ValueError(f"Invalid action: {args.action}")
+    end_time = datetime.now()
+    return end_time - start_time
 
 if __name__ == "__main__":
     main()

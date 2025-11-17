@@ -38,7 +38,7 @@ class Scenario:
         replicas: A tuple indicating the range of replicas for the scenario.
                   Or a single integer if the scenario has a fixed number of replicas.
         nodepools: The number of nodepools to use for the scenario.
-        ballast_pods: The number of ballast pods to use for the scenario. This could also be seen as a control group.
+        control_pods: The number of control group pods to use for the scenario.
                       The purpose is primarily to make it so that the experimental deploy does not represent an
                       unrealistic percentage of the total cluster resources.
 
@@ -47,30 +47,16 @@ class Scenario:
                  workloads_per_nodepool: List[int] | int = 1,
                  replicas: Tuple[int, int] | int = 2,
                  nodepools: int = 1,
-                 ballast_pods: int = 0):
+                 control_pods: int = 0):
         self.name: str = name
         self.mechanism: Mechanism = mechanism
         self.nodepools: int = nodepools
         self.workloads_per_nodepool: List[int] = workloads_per_nodepool if isinstance(workloads_per_nodepool, list) else [workloads_per_nodepool]
         self.replicas: Tuple[int, int] = replicas if isinstance(replicas, tuple) else (replicas, replicas)
-        self.ballast_pods: int = ballast_pods
+        self.control_pods: int = control_pods
 
     def __str__(self):
         return self.name
-
-
-class LongRunningScenario(Scenario):
-    """
-    A scenario that is long running, for instance can be restarted, redeployed, or otherwise modified.
-    """
-    def __init__(self, name: str, mechanism: Mechanism,
-                 workloads_per_nodepool: List[int] | int = 1,
-                 replicas: Tuple[int, int] | int = 2,
-                 nodepools: int = 1,
-                 ballast_pods: int = 0,
-                 restart_count: int = 0,):
-        super().__init__(name, mechanism, workloads_per_nodepool, replicas, nodepools, ballast_pods)
-        self.restart_count = restart_count
 
 
 SCENARIOS = [
@@ -131,7 +117,6 @@ SCENARIOS = [
     Scenario(
         name="P1.i",
         mechanism=Mechanism.POD_ANTI_AFFINITY,
-        workloads_per_nodepool=1,
         replicas=2,
     ),
     Scenario(
@@ -149,38 +134,32 @@ SCENARIOS = [
     Scenario(
         name="P1.iv",
         mechanism=Mechanism.POD_ANTI_AFFINITY,
-        nodepools=1,
         workloads_per_nodepool=10,
         replicas=(2, 50),
     ),
     Scenario(
         name="P2",
         mechanism=Mechanism.POD_ANTI_AFFINITY,
-        nodepools=1,
         workloads_per_nodepool=10,
         replicas=50,
     ),
-    LongRunningScenario(
+    Scenario(
         name="P3.i",
         mechanism=Mechanism.POD_ANTI_AFFINITY,
         workloads_per_nodepool=10,
         replicas=50,
-        restart_count=1,
     ),
-    LongRunningScenario(
+    Scenario(
         name="P3.ii",
         mechanism=Mechanism.POD_ANTI_AFFINITY,
         workloads_per_nodepool=10,
         replicas=50,
-        restart_count=10,
     ),
-    LongRunningScenario(
+    Scenario(
         name="P4.i",
         mechanism=Mechanism.POD_ANTI_AFFINITY,
-        workloads_per_nodepool=1,
         replicas=10,
-        restart_count=10,
-        ballast_pods=100,
+        control_pods=100,
     ),
 ]
 
@@ -213,7 +192,7 @@ def generate_values(scenario: Scenario | str) -> None:
         replica_counts = determine_replica_counts_for_nodepool(scenario, nodepool_index)
         for workload_id in range(scenario.workloads_per_nodepool[nodepool_index % len(scenario.workloads_per_nodepool)]):
             replica_count = replica_counts[workload_id % len(replica_counts)]
-            release_name = f"np{nodepool_index}-w{workload_id}"
+            release_name = f"{scenario.name}-test-{workload_id}"
 
             values = default_values.copy()
 
@@ -274,11 +253,11 @@ def generate_values(scenario: Scenario | str) -> None:
 
             yaml.dump(values, open(f"{VALUES_DIR}/{scenario.name}/values-{release_name}.yaml", "w"))
 
-    if scenario.ballast_pods > 0:
+    if scenario.control_pods > 0:
         # Generate the ballast values file
         ballast_values = default_values.copy()
-        ballast_values['replicaCount'] = scenario.ballast_pods
-        yaml.dump(ballast_values, open(f"{VALUES_DIR}/{scenario.name}/values-ballast.yaml", "w"))
+        ballast_values['replicaCount'] = scenario.control_pods
+        yaml.dump(ballast_values, open(f"{VALUES_DIR}/{scenario.name}/values-{scenario.name}-test-control-1.yaml", "w"))
 
 
 def determine_replica_counts_for_nodepool(scenario: Scenario, nodepool_index: int) -> List[int]:

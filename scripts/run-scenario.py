@@ -8,21 +8,20 @@ import sys
 
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 import deploy
 import scenarios
 import measurements
 import utils
+from measurements import Measurements
 from postprocess import PostprocessedData
 
-
-DEFAULT_RELEASE_PREFIX = "bw-"
+DEFAULT_RELEASE_PREFIX = ""
 COSMOS_DEV_COSMOS_CONTEXT_NAME = "arn:aws:eks:us-east-1:843722649052:cluster/cosmos-dev-cosmos"
 
 RESTART_DELAY = 60
 ROLLOUT_WAIT = 300
-
 
 logger = logging.getLogger(__name__)
 
@@ -48,26 +47,31 @@ class ExperimentResult:
                  postprocessed_data: PostprocessedData, measurements_taken: List[measurements.Measurements],
                  cluster_name: str):
         self.args = args
-        self.scenario = args.scenario
-        self.action = args.action
         self.start_time = start_time
         self.elapsed_time = elapsed_time
         self.postprocessed_data = postprocessed_data
         self.measurements_taken = measurements_taken
 
     def to_dict(self) -> dict:
-        return {
-            "args": self.args.to_dict(),
+        dictionary = {
+            "args": vars(self.args),
             "start_time": self.start_time.isoformat(timespec='seconds'),
-            "action": self.action.value,
-            "scenario": self.scenario.name,
             "elapsed_time": self.elapsed_time.total_seconds(),
             "postprocessed_data": self.postprocessed_data.to_dict(),
             "measurements_taken": [m.to_dict() for m in self.measurements_taken],
         }
+        return dictionary
 
     def __str__(self) -> str:
         return json.dumps(self.to_dict())
+
+    def write_to_file(self, parent_path: Path):
+        parent_path.mkdir(parents=True, exist_ok=True)
+        file_path = parent_path / f"{self.args.scenario.name}-{self.start_time.isoformat(timespec='seconds')}.json"
+        logger.debug(f"Saving measurements to {file_path}")
+        with open(file_path, 'w') as f:
+            json.dump(self.to_dict(), f, indent=4)
+            logger.info(f"Experiment result written to {file_path}")
 
 
 def parse_args() -> Tuple[argparse.Namespace, Dict[str, Path]]:
@@ -89,8 +93,8 @@ def parse_args() -> Tuple[argparse.Namespace, Dict[str, Path]]:
     parser.add_argument("--namespace", "-ns", required=True, type=str,
                         help="The namespace to install the scenario into")
     parser.add_argument("--release-prefix", "-rp", type=str,
-                        help="Prefix all generated release names with this string", default=DEFAULT_RELEASE_PREFIX)
-
+                        help="Prefix all generated release names with this string",
+                        required=False, default=DEFAULT_RELEASE_PREFIX)
     # Action arguments
     parser.add_argument("--action", "-a", type=Action, choices=list(Action),
                         help="The action to perform", default=Action.INSTALL)
@@ -169,8 +173,9 @@ def main():
         if not args.no_print:
             logger.info(f"Postprocessed data: {postprocessed_data}")
 
-        utils.write_measurements(args.scenario.name, args, start_time, elapsed_time, postprocessed_data,
-                                 [measurements_pre, measurements_post])
+        experiment_result = ExperimentResult(args, start_time, elapsed_time, postprocessed_data,
+                                             [measurements_pre, measurements_post], COSMOS_DEV_COSMOS_CONTEXT_NAME)
+        experiment_result.write_to_file(utils.OUTPUT_DIR / args.scenario.name)
 
         logger.info("Done")
     except Exception:

@@ -32,6 +32,7 @@ class Scenario:
 
     Args:
         name: The name of the scenario.
+        description: A free-form description of the scenario.
         mechanism: The mechanism to use for the scenario.
         workloads_per_nodepool: A list of the number of workloads per nodepool.
                                 Or a single integer if the scenario has a fixed number of workloads per nodepool.
@@ -43,12 +44,13 @@ class Scenario:
                       unrealistic percentage of the total cluster resources.
 
     """
-    def __init__(self, name: str, mechanism: Mechanism,
+    def __init__(self, name: str, description: str, mechanism: Mechanism,
                  workloads_per_nodepool: List[int] | int = 1,
                  replicas: Tuple[int, int] | int = 2,
                  nodepools: int = 1,
                  control_pods: int = 0):
         self.name: str = name
+        self.description: str = description
         self.mechanism: Mechanism = mechanism
         self.nodepools: int = nodepools
         self.workloads_per_nodepool: List[int] = workloads_per_nodepool if isinstance(workloads_per_nodepool, list) else [workloads_per_nodepool]
@@ -62,18 +64,21 @@ class Scenario:
 SCENARIOS = [
     Scenario(
         name="C1",
+        description="Default behavior test with a variety of replica counts",
         mechanism=Mechanism.NONE,
         workloads_per_nodepool=10,
         replicas=(2, 50),
     ),
     Scenario(
         name="C2",
+        description="Default beahvior test with a fixed large number of replicas",
         mechanism=Mechanism.NONE,
         workloads_per_nodepool=10,
         replicas=50
     ),
     Scenario(
         name="NS1",
+        description="Node selector with a single workload per nodepool",
         mechanism=Mechanism.NODE_SELECTOR,
         nodepools=2,
         workloads_per_nodepool=1,
@@ -81,6 +86,7 @@ SCENARIOS = [
     ),
     Scenario(
         name="NS2.i",
+        description="Node selector with multiple workloads per nodepool",
         mechanism=Mechanism.NODE_SELECTOR,
         nodepools=2,
         workloads_per_nodepool=[2, 10],
@@ -88,20 +94,15 @@ SCENARIOS = [
     ),
     Scenario(
         name="NS2.ii",
+        description="Even more workloads per nodepool",
         mechanism=Mechanism.NODE_SELECTOR,
         nodepools=2,
-        workloads_per_nodepool=[5, 10],
-        replicas=(2, 50),
-    ),
-    Scenario(
-        name="NS3.i",
-        mechanism=Mechanism.NODE_SELECTOR,
-        nodepools=2,
-        workloads_per_nodepool=[2, 5, 10],
+        workloads_per_nodepool=10,
         replicas=(2, 50),
     ),
     Scenario(
         name="NS3.ii",
+        description="More nodepools",
         mechanism=Mechanism.NODE_SELECTOR,
         nodepools=5,
         workloads_per_nodepool=[2, 5, 10],
@@ -109,6 +110,7 @@ SCENARIOS = [
     ),
     Scenario(
         name="NS3.iii",
+        description="Even more nodepools",
         mechanism=Mechanism.NODE_SELECTOR,
         nodepools=10,
         workloads_per_nodepool=[2, 5, 10],
@@ -116,47 +118,41 @@ SCENARIOS = [
     ),
     Scenario(
         name="P1.i",
+        description="Basic pod anti-affinity",
         mechanism=Mechanism.POD_ANTI_AFFINITY,
         replicas=2,
     ),
     Scenario(
         name="P1.ii",
+        description="Pod anti-affinity with multiple test workloads",
         mechanism=Mechanism.POD_ANTI_AFFINITY,
         workloads_per_nodepool=10,
         replicas=2,
     ),
     Scenario(
         name="P1.iii",
+        description="Pod anti-affinity with a range of replica counts",
         mechanism=Mechanism.POD_ANTI_AFFINITY,
         workloads_per_nodepool=10,
         replicas=(2, 10),
     ),
     Scenario(
         name="P1.iv",
+        description="Pod anti-affinity with a larger range of replicas",
         mechanism=Mechanism.POD_ANTI_AFFINITY,
         workloads_per_nodepool=10,
         replicas=(2, 50),
     ),
     Scenario(
-        name="P2",
-        mechanism=Mechanism.POD_ANTI_AFFINITY,
-        workloads_per_nodepool=10,
-        replicas=50,
-    ),
-    Scenario(
-        name="P3.i",
-        mechanism=Mechanism.POD_ANTI_AFFINITY,
-        workloads_per_nodepool=10,
-        replicas=50,
-    ),
-    Scenario(
-        name="P3.ii",
+        name="P3",
+        description="Pod anti-affinity with a large number of replicas",
         mechanism=Mechanism.POD_ANTI_AFFINITY,
         workloads_per_nodepool=10,
         replicas=50,
     ),
     Scenario(
         name="P4.i",
+        description="Pod anti-affinity with a large number of replicas and a control group",
         mechanism=Mechanism.POD_ANTI_AFFINITY,
         replicas=10,
         control_pods=100,
@@ -185,6 +181,9 @@ def generate_values(scenario: Scenario | str) -> None:
     if isinstance(scenario, str):
         scenario = get_scenario(scenario)
 
+    # Mkae the scenario name valid as a release name
+    scenario_name = scenario.name.replace('.', '-').lower()
+
     (VALUES_DIR / scenario.name).mkdir(parents=True, exist_ok=True)
     default_values = yaml.safe_load(open("busybox-chart/values.yaml"))
 
@@ -192,7 +191,7 @@ def generate_values(scenario: Scenario | str) -> None:
         replica_counts = determine_replica_counts_for_nodepool(scenario, nodepool_index)
         for workload_id in range(scenario.workloads_per_nodepool[nodepool_index % len(scenario.workloads_per_nodepool)]):
             replica_count = replica_counts[workload_id % len(replica_counts)]
-            release_name = f"{scenario.name}-test-{workload_id}"
+            release_name = f"{scenario_name}-test-{workload_id}"
 
             values = default_values.copy()
 
@@ -257,7 +256,7 @@ def generate_values(scenario: Scenario | str) -> None:
         # Generate the ballast values file
         ballast_values = default_values.copy()
         ballast_values['replicaCount'] = scenario.control_pods
-        yaml.dump(ballast_values, open(f"{VALUES_DIR}/{scenario.name}/values-{scenario.name}-test-control-1.yaml", "w"))
+        yaml.dump(ballast_values, open(f"{VALUES_DIR}/{scenario.name}/values-{scenario_name}-control-0.yaml", "w"))
 
 
 def determine_replica_counts_for_nodepool(scenario: Scenario, nodepool_index: int) -> List[int]:

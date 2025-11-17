@@ -1,15 +1,9 @@
-import argparse
-import concurrent
-import json
+import concurrent.futures
 import logging
 import subprocess
 
-from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List
 from pathlib import Path
-
-from measurements import Measurements
-from postprocess import PostprocessedData
 
 MAX_WORKERS = 10
 
@@ -49,24 +43,3 @@ def run_command(cmd, dry_run: bool = False, check=True, capture_output=True, tex
         return result
     except subprocess.CalledProcessError as e:
         raise Exception(f"Error running command '{cmd}'") from e
-
-
-def write_measurements(file_basename, args: argparse.Namespace, start_time: datetime, elapsed_time: Optional[timedelta], postprocessed_data: PostprocessedData, measurements_taken: List[Measurements]):
-    timestamp = datetime.now().isoformat(timespec='seconds')
-    output_dir = OUTPUT_DIR / file_basename
-    output_dir.mkdir(parents=True, exist_ok=True)
-    measurements_file = output_dir / f"{file_basename}-{timestamp}.json"
-    logger.info(f"Saving measurements to {measurements_file}")
-    with open(measurements_file, 'w') as f:
-        args_dict = vars(args)
-        if "scenario" in args_dict:
-            args_dict["scenario"] = args.scenario.name
-        data = {
-            "args": args_dict,
-            "start_time": start_time.isoformat(timespec='seconds'),
-            "postprocessed": postprocessed_data.to_dict(),
-            "measurements": [m.to_dict() for m in measurements_taken],
-        }
-        if elapsed_time:
-            data["elapsed_time"] = str(elapsed_time)
-        json.dump(data, f, indent=4)

@@ -139,7 +139,7 @@ class DeploymentDistributionData:
             'max_pods': self.max_pods,
             'min_pods': self.min_pods,
             'node_skew': self.node_skew,
-            'node_skew_percentage': self.node_skew_percentage,
+            'node_skew_percentage': ((round(self.node_skew_percentage, 3) if round_values else self.node_skew_percentage) * 100),
             'mean_pods': round(self.mean_pods, 3) if round_values else self.mean_pods,
             'median_pods': round(self.median_pods, 3) if round_values else self.median_pods,
             'coefficient_of_variation': round(self.coefficient_of_variation, 3) if round_values else self.coefficient_of_variation,

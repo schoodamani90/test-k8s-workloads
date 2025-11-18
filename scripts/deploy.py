@@ -6,12 +6,13 @@ from pathlib import Path
 
 from kubernetes import client, config
 
+from scenarios import Scenario
 from utils import run_command, run_commands
 
 logger = logging.getLogger(__name__)
 
 VERIFICATION_ATTEMPTS = 5
-VERIFICATION_RETRY_DELAY = 10
+VERIFICATION_RETRY_DELAY = 30
 
 
 def install_scenario(release_to_values: Dict[str, Path], namespace: str, dry_run: bool = False, debug: bool = False):
@@ -90,13 +91,13 @@ def verify_cluster(cluster_context_name: str):
         raise Exception(f"Not using the expected context. scc to {cluster_context_name.split('/')[-1]}")
 
 
-def render_templates(release_name: str, values_path: Path, namespace: str, output_dir: Path, debug: bool = False):
+def render_templates(scenario: Scenario, release_name: str, values_path: Path, namespace: str, output_dir: Path, debug: bool = False):
     """
     Render the templates for a given release and values path.
     Thse are used for reference only.
     """
     # Create output directory
-    output_dir = Path(output_dir) / release_name
+    output_dir = Path(output_dir) / scenario.name / release_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Render template for reference

@@ -8,19 +8,18 @@ import sys
 
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+import time
+from typing import Dict, List, Tuple
 
 import deploy
 import scenarios
 import measurements
 import utils
-from measurements import Measurements
 from postprocess import PostprocessedData
 
 DEFAULT_RELEASE_PREFIX = ""
 COSMOS_DEV_COSMOS_CONTEXT_NAME = "arn:aws:eks:us-east-1:843722649052:cluster/cosmos-dev-cosmos"
 
-RESTART_DELAY = 60
 ROLLOUT_WAIT = 300
 
 logger = logging.getLogger(__name__)
@@ -43,10 +42,11 @@ class Action(Enum):
 
 
 class ExperimentResult:
-    def __init__(self, args: argparse.Namespace, start_time: datetime, elapsed_time: timedelta,
+    def __init__(self, args: argparse.Namespace, cluster: str, start_time: datetime, elapsed_time: timedelta,
                  postprocessed_data: PostprocessedData, measurements_taken: List[measurements.Measurements],
-                 cluster_name: str):
+                 ):
         self.args = args
+        self.cluster = cluster
         self.start_time = start_time
         self.elapsed_time = elapsed_time
         self.postprocessed_data = postprocessed_data
@@ -55,11 +55,14 @@ class ExperimentResult:
     def to_dict(self) -> dict:
         dictionary = {
             "args": vars(self.args),
+            "cluster": self.cluster,
             "start_time": self.start_time.isoformat(timespec='seconds'),
-            "elapsed_time": self.elapsed_time.total_seconds(),
+            "elapsed_time": str(self.elapsed_time),
             "postprocessed_data": self.postprocessed_data.to_dict(),
             "measurements_taken": [m.to_dict() for m in self.measurements_taken],
         }
+        dictionary["args"]["scenario"] = self.args.scenario.name
+        dictionary["args"]["action"] = self.args.action.value
         return dictionary
 
     def __str__(self) -> str:
@@ -150,12 +153,12 @@ def main():
         if args.render_locally:
             logger.info(f"Rendering templates locally for {args.scenario}")
             for release_name, values_path in release_to_values.items():
-                deploy.render_templates(release_name, values_path, args.namespace, utils.TEMPLATES_DIR,
+                deploy.render_templates(args.scenario, release_name, values_path, args.namespace, utils.TEMPLATES_DIR,
                                         debug=args.debug)
 
         deploy.verify_cluster(COSMOS_DEV_COSMOS_CONTEXT_NAME)
 
-        measurements_pre = measurements.gather_cluster_measurements(release_to_values.keys())
+        measurements_pre = measurements.gather_cluster_measurements([args.namespace])
         if not args.no_print:
             logger.info("Pre-action measurements:")
             measurements_pre.print()
@@ -165,7 +168,7 @@ def main():
         logger.info(f"{args.action.value} took {elapsed_time}")
 
         # Gather post-install measurements
-        measurements_post = measurements.gather_cluster_measurements(release_to_values.keys())
+        measurements_post = measurements.gather_cluster_measurements([args.namespace])
         if not args.no_print:
             logger.info("Post-action measurements:")
             measurements_post.print()
@@ -173,8 +176,8 @@ def main():
         if not args.no_print:
             logger.info(f"Postprocessed data: {postprocessed_data}")
 
-        experiment_result = ExperimentResult(args, start_time, elapsed_time, postprocessed_data,
-                                             [measurements_pre, measurements_post], COSMOS_DEV_COSMOS_CONTEXT_NAME)
+        experiment_result = ExperimentResult(args, COSMOS_DEV_COSMOS_CONTEXT_NAME, start_time, elapsed_time,
+                                             postprocessed_data, [measurements_pre, measurements_post])
         experiment_result.write_to_file(utils.OUTPUT_DIR / args.scenario.name)
 
         logger.info("Done")
@@ -188,6 +191,7 @@ def main():
 
 def perform_action(args: argparse.Namespace, release_to_values: Dict[str, Path]) -> timedelta:
     start_time = datetime.now()
+    logger.info(f"Performing {args.action} on {len(release_to_values)} releases in namespace {args.namespace}")
     if args.action == Action.INSTALL:
         deploy.install_scenario(release_to_values, args.namespace, dry_run=args.dry_run, debug=args.debug)
         # Wait for pods to start
@@ -197,7 +201,9 @@ def perform_action(args: argparse.Namespace, release_to_values: Dict[str, Path])
         deploy.uninstall_scenario(release_to_values.keys(), args.namespace, dry_run=args.dry_run, debug=args.debug)
     elif args.action == Action.RESTART:
         deploy.restart_deployments(release_to_values.keys(), args.namespace, dry_run=args.dry_run, debug=args.debug)
-        # Wait for rollouts to complete
+        logger.info("Waiting for rollout restart to complete")
+        time.sleep(ROLLOUT_WAIT)
+        # Wait for rollout restart to complete
         if not args.dry_run:
             deploy.verify_install(release_to_values.keys(), args.namespace)
     elif args.action == Action.NONE:
@@ -205,7 +211,7 @@ def perform_action(args: argparse.Namespace, release_to_values: Dict[str, Path])
     else:
         raise ValueError(f"Invalid action: {args.action}")
     end_time = datetime.now()
-    return end_time - start_time
+    return end_time - start_time if not args.action == Action.NONE else timedelta(0)
 
 
 if __name__ == "__main__":

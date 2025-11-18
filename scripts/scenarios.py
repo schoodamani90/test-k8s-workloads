@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 
 import logging
 import yaml
@@ -161,7 +161,9 @@ SCENARIOS = [
 
 
 def main():
+    logger.info("Generating values files for all scenarios")
     generate_all_values()
+    logger.info("Done")
 
 
 def get_scenario(name: str) -> Scenario:

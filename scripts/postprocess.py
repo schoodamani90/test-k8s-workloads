@@ -75,8 +75,8 @@ class PostprocessedData:
             'node_skew_max': self.node_skew_max,
 
             'node_skew_percentage_mean': round(self.node_skew_percentage_mean, 2),
-            'node_skew_percentage_median': self.node_skew_percentage_median,
-            'node_skew_percentage_max': self.node_skew_percentage_max,
+            'node_skew_percentage_median': round(self.node_skew_percentage_median, 2),
+            'node_skew_percentage_max': round(self.node_skew_percentage_max, 2),
 
             'nosed_used_avg': round(self.nosed_used_avg, 2),
             'nosed_used_median': round(self.nosed_used_median, 2),

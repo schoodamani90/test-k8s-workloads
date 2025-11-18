@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-import glob
 import json
 import logging
-import os
-from pathlib import Path
 import statistics
-from typing import Optional, Tuple
+from typing import Optional
 
 from measurements import Measurements
 
@@ -86,54 +83,3 @@ class PostprocessedData:
 
     def __str__(self) -> str:
         return json.dumps(self.to_dict())
-
-
-def fetch_measurements(measurements_file: Path) -> Tuple[Measurements, Measurements]:
-    """
-    Postprocess the measurements file.
-    """
-    try:
-        with open(measurements_file, 'r') as f:
-            data = json.load(f)
-            # parse pre and post measurements
-            pre_measurements = Measurements.from_dict(data['measurements_pre'])
-            post_measurements = Measurements.from_dict(data['measurements_post'])
-
-            return pre_measurements, post_measurements
-    except json.JSONDecodeError as e:
-        raise Exception(f"Error parsing measurements file {measurements_file}") from e
-
-
-if __name__ == "__main__":
-    # For testing
-    logging.basicConfig(level=logging.INFO)
-
-    MEASUREMENTS_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/output"
-    measurements_pattern = f"{MEASUREMENTS_DIR}/**/*.json"
-    measurements_files = glob.glob(measurements_pattern)
-
-    for measurements_file in measurements_files:
-        pre_measurements, post_measurements = fetch_measurements(Path(measurements_file))
-        results = PostprocessedData(pre_measurements, post_measurements)
-        logger.info(f"Results for {measurements_file}: {results}")
-
-        try:
-            with open(measurements_file, 'r') as f:
-                original_data = json.load(f)
-        except json.JSONDecodeError as e:
-            raise Exception(f"Error parsing measurements file {measurements_file}") from e
-        try:
-            with open(measurements_file, 'r+') as f:
-                data = {
-                    # keep everything the same except for the postprocessed data
-                    "args": original_data['args'],
-                    "timestamp": original_data['timestamp'],
-                    "install_time": original_data['install_time'],
-                    "postprocessed": results.to_dict(),
-                    "measurements_pre": original_data['measurements_pre'],
-                    "measurements_post": original_data['measurements_post'],
-                }
-                json.dump(data, f, indent=4)
-        except Exception as e:
-            raise Exception(f"Error writing measurements file {measurements_file}") from e
-    logger.info(f"Done. Processed {len(measurements_files)} measurements files")

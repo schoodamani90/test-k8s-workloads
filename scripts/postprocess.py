@@ -23,32 +23,52 @@ class PostprocessedData:
             self.scale_amount = None
             self.scale_percentage = None
 
+        if not measurements_post.deployments:
+            logger.warning("No deployments found in post-action measurements")
+            self.jain_fairness_index_mean = 0
+            self.jain_fairness_index_median = 0
+            self.coefficient_of_variation_mean = 0
+            self.coefficient_of_variation_median = 0
+            self.gini_coefficient_mean = 0
+            self.gini_coefficient_median = 0
+            self.node_skew_mean = 0
+            self.node_skew_median = 0
+            self.node_skew_max = 0
+            self.node_skew_percentage_mean = 0
+            self.node_skew_percentage_median = 0
+            self.node_skew_percentage_max = 0
+            self.nosed_used_avg = 0
+            self.nosed_used_median = 0
+            self.nosed_used_max = 0
+            self.nosed_used_min = 0
+            return
+
         # calculate mean+median of jain fairness index, coefficient of variation, gini coefficient
-        jfi_values = [deployment.jain_fairness_index for deployment in measurements_post.deployments.values()]
+        jfi_values = [d.jain_fairness_index for d in measurements_post.deployments.values()]
         self.jain_fairness_index_mean = statistics.mean(jfi_values)
         self.jain_fairness_index_median = statistics.median(jfi_values)
 
-        cov_values = [deployment.coefficient_of_variation for deployment in measurements_post.deployments.values()]
+        cov_values = [d.coefficient_of_variation for d in measurements_post.deployments.values()]
         self.coefficient_of_variation_mean = statistics.mean(cov_values)
         self.coefficient_of_variation_median = statistics.median(cov_values)
 
-        gci_values = [deployment.gini_coefficient for deployment in measurements_post.deployments.values()]
+        gci_values = [d.gini_coefficient for d in measurements_post.deployments.values()]
         self.gini_coefficient_mean = statistics.mean(gci_values)
         self.gini_coefficient_median = statistics.median(gci_values)
 
         # determine mean, median, and max skew of node_skew (raw and percentage)
-        node_skew_values = [deployment.node_skew for deployment in measurements_post.deployments.values()]
+        node_skew_values = [d.node_skew for d in measurements_post.deployments.values()]
         self.node_skew_mean = statistics.mean(node_skew_values)
         self.node_skew_median = statistics.median(node_skew_values)
         self.node_skew_max = max(node_skew_values)
 
-        node_skew_percentage_values = [deployment.node_skew_percentage for deployment in measurements_post.deployments.values()]
+        node_skew_percentage_values = [d.node_skew_percentage for d in measurements_post.deployments.values()]
         self.node_skew_percentage_mean = statistics.mean(node_skew_percentage_values)
         self.node_skew_percentage_median = statistics.median(node_skew_percentage_values)
         self.node_skew_percentage_max = max(node_skew_percentage_values)
 
         # more metrics on node usage
-        nosed_used_values = [deployment.nodes_used for deployment in measurements_post.deployments.values()]
+        nosed_used_values = [d.nodes_used for d in measurements_post.deployments.values()]
         self.nosed_used_avg = statistics.mean(nosed_used_values)
         self.nosed_used_median = statistics.median(nosed_used_values)
         self.nosed_used_max = max(nosed_used_values)

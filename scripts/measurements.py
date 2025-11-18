@@ -1,8 +1,7 @@
-import argparse
-from datetime import datetime, timedelta
 import logging
 import statistics
 import json
+from datetime import datetime
 from typing import Dict, Iterable, List, Optional
 from kubernetes import client, config
 

@@ -28,21 +28,21 @@ class PostprocessedData:
 
         # calculate mean+median of jain fairness index, coefficient of variation, gini coefficient
         jfi_values = [deployment.jain_fairness_index for deployment in measurements_post.deployments.values()]
-        self.jain_fairness_index_mean = statistics.mean(jfi_values)
-        self.jain_fairness_index_median = statistics.median(jfi_values)
+        self.jain_fairness_index_mean = statistics.mean(jfi_values) if jfi_values else 1
+        self.jain_fairness_index_median = statistics.median(jfi_values) if jfi_values else 1
 
         cov_values = [deployment.coefficient_of_variation for deployment in measurements_post.deployments.values()]
-        self.coefficient_of_variation_mean = statistics.mean(cov_values)
-        self.coefficient_of_variation_median = statistics.median(cov_values)
+        self.coefficient_of_variation_mean = statistics.mean(cov_values) if cov_values else 0
+        self.coefficient_of_variation_median = statistics.median(cov_values) if cov_values else 0
 
         gci_values = [deployment.gini_coefficient for deployment in measurements_post.deployments.values()]
-        self.gini_coefficient_mean = statistics.mean(gci_values)
-        self.gini_coefficient_median = statistics.median(gci_values)
+        self.gini_coefficient_mean = statistics.mean(gci_values) if gci_values else 0
+        self.gini_coefficient_median = statistics.median(gci_values) if gci_values else 0
 
         # determine mean, median, and max skew of node_skew
         node_skew_values = [deployment.node_skew for deployment in measurements_post.deployments.values()]
-        self.node_skew_mean = statistics.mean(node_skew_values)
-        self.node_skew_median = statistics.median(node_skew_values)
+        self.node_skew_mean = statistics.mean(node_skew_values) if node_skew_values else 0
+        self.node_skew_median = statistics.median(node_skew_values) if node_skew_values else 0
         self.node_skew_max = max(node_skew_values)
 
         # more metrics on node usage

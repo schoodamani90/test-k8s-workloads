@@ -24,6 +24,9 @@ class Mechanism(Enum):
     POD_ANTI_AFFINITY = "podAntiAffinity"
     TOPOLOGY_SPREAD = "topologySpreadConstraint"
 
+class Preference(Enum):
+    SOFT = "soft"
+    HARD = "hard"
 
 class Scenario:
     """
@@ -48,7 +51,8 @@ class Scenario:
                  workloads_per_nodepool: List[int] | int = 1,
                  replicas: Tuple[int, int] | int = 2,
                  nodepools: int = 1,
-                 control_pods: int = 0):
+                 control_pods: int = 0,
+                 preference: Preference = Preference.SOFT):
         self.name: str = name
         self.description: str = description
         self.mechanism: Mechanism = mechanism
@@ -56,6 +60,7 @@ class Scenario:
         self.workloads_per_nodepool: List[int] = workloads_per_nodepool if isinstance(workloads_per_nodepool, list) else [workloads_per_nodepool]
         self.replicas: Tuple[int, int] = replicas if isinstance(replicas, tuple) else (replicas, replicas)
         self.control_pods: int = control_pods
+        self.preference: Preference = preference
 
     def __str__(self):
         return self.name
@@ -157,6 +162,20 @@ SCENARIOS = [
         replicas=10,
         control_pods=100,
     ),
+    Scenario(
+        name="TSC1",
+        description="TSC soft preference over a range of replicas",
+        mechanism=Mechanism.TOPOLOGY_SPREAD,
+        replicas=(2, 50),
+        preference=Preference.SOFT
+    ),
+    Scenario(
+        name="TSC2",
+        description="TSC hard preference over a range of replicas",
+        mechanism=Mechanism.TOPOLOGY_SPREAD,
+        replicas=(2, 50),
+        preference=Preference.HARD
+    )
 ]
 
 
@@ -248,7 +267,36 @@ def generate_values(scenario: Scenario | str) -> None:
                         ]}}
 
             elif scenario.mechanism == Mechanism.TOPOLOGY_SPREAD:
-                pass
+                if scenario.preference == Preference.SOFT:
+                    values['topologySpreadConstraints'] = [
+                        {
+                            'labelSelector': {
+                                'matchLabels': {
+                                    'app.kubernetes.io/name': 'busybox-chart',
+                                    'app.kubernetes.io/instance': release_name
+                                }
+                            },
+                            'maxSkew': 1,
+                            'topologyKey': 'kubernetes.io/hostname',
+                            'whenUnsatisfiable': 'ScheduleAnyway'
+                        }
+                    ]
+                elif scenario.preference == Preference.HARD:
+                    values['topologySpreadConstraints'] = [
+                        {
+                            'labelSelector': {
+                                'matchLabels': {
+                                    'app.kubernetes.io/name': 'busybox-chart',
+                                    'app.kubernetes.io/instance': release_name
+                                }
+                            },
+                            'maxSkew': 1,
+                            'topologyKey': 'kubernetes.io/hostname',
+                            'whenUnsatisfiable': 'DoNotSchedule'
+                        }
+                    ]
+                else:
+                    raise ValueError(f"Invalid preference: {scenario.preference.value}")
             else:
                 raise ValueError(f"Invalid mechanism: {scenario.mechanism.value}")
 

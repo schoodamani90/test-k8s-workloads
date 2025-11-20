@@ -25,7 +25,7 @@ source setup.sh
 
 ```bash
 # Generate all predefined scenarios
-python scenarios.py
+python scripts/scenarios.py
 
 # This creates values files in build/values/ for each scenario
 ```
@@ -79,7 +79,7 @@ Scenario(
 ### 2. (Optional) Generate Values Files
 
 ```bash
-python scenarios.py
+python scripts/scenarios.py
 ```
 
 This creates values files in `build/values/MY_SCENARIO/` with different replica counts and configurations.
@@ -98,6 +98,9 @@ python experiment.py MY_SCENARIO --namespace my-namespace --action uninstall
 # Install with a custom prefix on all releases
 python experiment.py MY_SCENARIO --namespace my-namespace --release-prefix myusername
 ```
+
+Debug any issues by running the above command with the `--debug` flag.
+
 
 ## Understanding Output Files
 

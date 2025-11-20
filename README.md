@@ -36,11 +36,14 @@ where the convention for release name is `np{nodepool_index}-w{workload_id}-r{re
 ### 4. Run a Test Scenario
 
 ```bash
-# Install a scenario (e.g., C2)
-python run-scenario.py C2
+# Install a scenario (e.g., C2) in a namespace
+python experiment.py C2 --namespace my-namespace
 
 # Uninstall a scenario
-python run-scenario.py C2 --uninstall
+python experiment.py C2 --namespace my-namespace --action uninstall
+
+# Restart deployments in a scenario
+python experiment.py C2 --namespace my-namespace --action restart
 ```
 
 ## Framework Architecture
@@ -48,7 +51,7 @@ python run-scenario.py C2 --uninstall
 ### Core Components
 
 - **`scenarios.py`**: Generates Helm values files for different test scenarios
-- **`run-scenario.py`**: Installs/uninstalls scenarios and collects measurements
+- **`experiment.py`**: Installs/uninstalls scenarios and collects measurements
 - **`busybox-chart/`**: Helm chart for deploying test workloads
 - **`output/`**: JSON files containing detailed performance measurements
 
@@ -86,47 +89,54 @@ This is done automatically when running a scenario, but can be useful to do befo
 ### 3. Run the New Scenario
 
 ```bash
-# Install the scenario
-python run-scenario.py MY_SCENARIO
+# Install the scenario in a namespace
+python experiment.py MY_SCENARIO --namespace my-namespace
 
 # Uninstall when done
-python run-scenario.py MY_SCENARIO --uninstall
+python experiment.py MY_SCENARIO --namespace my-namespace --action uninstall
 
 # Install with a custom prefix on all releases
-python run-scenario.py MY_SCENARIO --release-prefix myusername
+python experiment.py MY_SCENARIO --namespace my-namespace --release-prefix myusername
 ```
 
 ## Understanding Output Files
 
-The framework generates detailed JSON measurement files in the `output/` directory. Each file contains:
+The framework generates detailed JSON measurement files in the `output/` directory. Files are named using the pattern `{scenario_name}-{timestamp}.json` (e.g., `C2-2025-10-27T16:41:21.json`) and are organized in subdirectories by scenario name.
+
+Each file contains:
 
 ### Basic Information
 
-- **`args`**: Command-line arguments used
-- **`timestamp`**: When the test was run
-- **`install_time`**: Time taken to install/uninstall
+- **`args`**: Command-line arguments used (including scenario name and action)
+- **`cluster`**: The cluster context name where the experiment was run
+- **`start_time`**: ISO timestamp when the test started
+- **`elapsed_time`**: Time taken to perform the action (install/uninstall/restart)
 
 ### Performance Metrics
 
-- **`postprocessed`**: Aggregated performance statistics
-  - `jain_fairness_index_*`: Measures how evenly pods are distributed
-  - `coefficient_of_variation_*`: Measures variability in pod distribution
-  - `gini_coefficient_*`: Measures inequality in pod distribution
-  - `node_skew_*`: Maximum difference between most and least loaded nodes
-  - `nosed_used_*`: Statistics about nodes used
+- **`postprocessed_data`**: Aggregated performance statistics
+  - `jain_fairness_index_mean` / `jain_fairness_index_median`: Measures how evenly pods are distributed
+  - `coefficient_of_variation_mean` / `coefficient_of_variation_median`: Measures variability in pod distribution
+  - `gini_coefficient_mean` / `gini_coefficient_median`: Measures inequality in pod distribution
+  - `node_skew_mean` / `node_skew_median` / `node_skew_max`: Maximum difference between most and least loaded nodes
+  - `node_skew_percentage_mean` / `node_skew_percentage_median` / `node_skew_percentage_max`: Node skew as percentage
+  - `nosed_used_avg` / `nosed_used_median` / `nosed_used_max` / `nosed_used_min`: Statistics about nodes used
+  - `scale_direction` / `scale_amount` / `scale_percentage`: Cluster scaling information (if pre-measurements available)
 
 ### Cluster State
 
-- **`measurements_pre`**: Cluster state before workload deployment
-- **`measurements_post`**: Cluster state after workload deployment
-  - `cluster`: Node counts and eligibility
-  - `deployments`: Per-deployment pod distribution statistics
+- **`measurements_taken`**: Array of measurement snapshots
+  - First element: Cluster state before workload deployment (if available)
+  - Second element: Cluster state after workload deployment
+  - Each measurement contains:
+    - `cluster`: Node counts and eligibility
+    - `deployments`: Per-deployment pod distribution statistics
 
 ### Example Output Analysis
 
 ```json
 {
-  "postprocessed": {
+  "postprocessed_data": {
     "jain_fairness_index_mean": 0.584,
     "coefficient_of_variation_mean": 0.906,
     "gini_coefficient_mean": 0.425,
@@ -142,32 +152,65 @@ The framework generates detailed JSON measurement files in the `output/` directo
 
 ## Advanced Usage
 
-### Dry Run Mode
+### Required Arguments
+
+- **`--namespace` / `-ns`**: The namespace to install the scenario into (required)
+
+### Action Arguments
+
+- **`--action` / `-a`**: The action to perform (default: `install`)
+  - `install`: Install the scenario
+  - `uninstall`: Uninstall the scenario
+  - `restart`: Restart all deployments in the scenario
+  - `none`: Skip installation/uninstallation (only take measurements)
+
+### General Arguments
+
+- **`--debug` / `-d`**: Enable detailed logging
+- **`--no-print` / `-np`**: Suppress measurement visualizations in console output
+- **`--dry-run`**: Preview what would be installed without actually installing
+
+### Template and Value Generation
+
+- **`--render-locally`**: Render Helm templates locally without cluster access
+- **`--skip-value-generation`**: Skip value generation (useful for testing manually crafted values files)
+
+### Release Naming
+
+- **`--release-prefix` / `-rp`**: Prefix all generated release names with this string (optional)
+
+### Examples
 
 ```bash
 # Preview what would be installed without actually installing
-python run-scenario.py C2 --dry-run
-```
+python experiment.py C2 --namespace my-namespace --dry-run
 
-### Debug Mode
-
-```bash
 # Enable detailed logging
-python run-scenario.py C2 --debug
-```
+python experiment.py C2 --namespace my-namespace --debug
 
-### Local Template Rendering
-
-```bash
 # Render Helm templates locally without cluster access
-python run-scenario.py C2 --render-locally
+python experiment.py C2 --namespace my-namespace --render-locally
+
+# Take measurements without installing workloads
+python experiment.py C2 --namespace my-namespace --action none
+
+# Suppress console output visualizations
+python experiment.py C2 --namespace my-namespace --no-print
 ```
 
-### Skip Installation
+## Collecting Measurements from Existing Deployments
+
+For analyzing real deployments (as opposed to synthetic test scenarios), use `collect.py`:
 
 ```bash
-# Take measurements without installing workloads
-python run-scenario.py C2 --skip-install
+# Collect measurements from default namespaces on default cluster
+python collect.py
+
+# Collect from specific namespaces
+python collect.py --namespaces namespace1 namespace2
+
+# Collect from a different cluster
+python collect.py --cluster-context "arn:aws:eks:us-east-1:906324658258:cluster/prod-live-main"
 ```
 
 ## Helm Chart Details
@@ -191,7 +234,7 @@ The `busybox-chart/` directory contains a Helm chart that:
 
 When adding new scenarios or mechanisms:
 
-1. Update `generate-values.py` with new scenario definitions
+1. Update `scenarios.py` with new scenario definitions
 2. Test with `--dry-run` first
 3. Document the scenario purpose and expected behavior
 4. Update the spreadsheet with new scenario information

@@ -6,34 +6,35 @@ from pathlib import Path
 
 from kubernetes import client, config
 
+from scenarios import Scenario
 from utils import run_command, run_commands
 
 logger = logging.getLogger(__name__)
 
 VERIFICATION_ATTEMPTS = 5
-VERIFICATION_RETRY_DELAY = 10
+VERIFICATION_RETRY_DELAY = 30
 
 
-def install_scenario(release_to_values: Dict[str, Path], dry_run: bool = False, debug: bool = False):
+def install_scenario(release_to_values: Dict[str, Path], namespace: str, dry_run: bool = False, debug: bool = False):
     install_cmds = []
     for release_name, values_path in release_to_values.items():
         # Install/upgrade the release
-        install_cmd = f"helm upgrade --install {release_name} ./busybox-chart -f {values_path} --namespace {release_name} --create-namespace --wait --timeout 5m {'--debug' if debug else ''}{' --dry-run' if dry_run else ''}"
+        install_cmd = f"helm upgrade --install {release_name} ./busybox-chart -f {values_path} --namespace {namespace} --create-namespace --wait --timeout 5m {'--debug' if debug else ''}{' --dry-run' if dry_run else ''}"
         logger.info(f"Installing {release_name} with {values_path.name}")
         install_cmds.append(install_cmd)
     run_commands(install_cmds, capture_output=not debug)
 
 
-def uninstall_scenario(release_names: Iterable[str], dry_run: bool = False, debug: bool = False):
+def uninstall_scenario(release_names: Iterable[str], namespace: str, dry_run: bool = False, debug: bool = False):
     uninstall_cmds = []
     for release_name in release_names:
-        uninstall_cmd = f"helm uninstall {release_name} --namespace {release_name} --ignore-not-found --wait --timeout 5m {'--debug' if debug else ''}{' --dry-run' if dry_run else ''}"
+        uninstall_cmd = f"helm uninstall {release_name} --namespace {namespace} --ignore-not-found --wait --timeout 5m {'--debug' if debug else ''}{' --dry-run' if dry_run else ''}"
         logger.info(f"Uninstalling {release_name}")
         uninstall_cmds.append(uninstall_cmd)
     run_commands(uninstall_cmds, capture_output=not debug)
 
 
-def verify_install(release_names: Iterable[str]) -> bool:
+def verify_install(release_names: Iterable[str], namespace: str) -> bool:
     """
     Verify that all releases have successfully started
     We install with --wait, so this should be somewhat redundant, but want to
@@ -44,7 +45,7 @@ def verify_install(release_names: Iterable[str]) -> bool:
     attempt = 0
     while (not install_verified) and (attempt < VERIFICATION_ATTEMPTS):
         attempt += 1
-        install_verified = all(verify_release(release_name) for release_name in release_names)
+        install_verified = all(verify_release(release_name, namespace) for release_name in release_names)
         if not install_verified:
             logger.info("Install verification failed. Retrying...")
             time.sleep(VERIFICATION_RETRY_DELAY)
@@ -54,13 +55,13 @@ def verify_install(release_names: Iterable[str]) -> bool:
     return install_verified
 
 
-def verify_release(release_name: str) -> bool:
+def verify_release(release_name: str, namespace: str) -> bool:
     """
     Verify that all pods from the given release names have successfully started
     """
     logger.debug(f"Verifying install of {release_name}")
     v1 = client.CoreV1Api()
-    pods = v1.list_namespaced_pod(namespace=release_name, label_selector=f"app.kubernetes.io/name=busybox-chart,app.kubernetes.io/instance={release_name}")
+    pods = v1.list_namespaced_pod(namespace=namespace, label_selector=f"app.kubernetes.io/name=busybox-chart,app.kubernetes.io/instance={release_name}")
     # TODO: Confirm pod count matches the desired count
     if len(pods.items) == 0:
         logger.error(f"No pods found in namespace {release_name}")
@@ -90,27 +91,27 @@ def verify_cluster(cluster_context_name: str):
         raise Exception(f"Not using the expected context. scc to {cluster_context_name.split('/')[-1]}")
 
 
-def render_templates(release_name: str, values_path: Path, output_dir: Path, debug: bool = False):
+def render_templates(scenario: Scenario, release_name: str, values_path: Path, namespace: str, output_dir: Path, debug: bool = False):
     """
     Render the templates for a given release and values path.
     Thse are used for reference only.
     """
     # Create output directory
-    output_dir = Path(output_dir) / release_name
+    output_dir = Path(output_dir) / scenario.name / release_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Render template for reference
-    template_cmd = f"helm template {release_name} ./busybox-chart -f {values_path} --namespace {release_name} --create-namespace --output-dir {output_dir} {'--debug' if debug else ''}"
+    template_cmd = f"helm template {release_name} ./busybox-chart -f {values_path} --namespace {namespace} --create-namespace --output-dir {output_dir} {'--debug' if debug else ''}"
     logger.debug(f"Rendering templates for {release_name}")
     run_command(template_cmd, capture_output=not debug)
 
 
-def restart_deployments(release_names: Iterable[str], debug: bool = False):
+def restart_deployments(release_names: Iterable[str], namespace: str, dry_run: bool = False, debug: bool = False):
     """
     Restart the deployments for the given release names
     """
     restart_cmds = []
     for release_name in release_names:
-        restart_cmd = f"kubectl rollout restart deployment {release_name} --namespace {release_name}"
+        restart_cmd = f"kubectl rollout restart deployment {release_name} --namespace {namespace}"
         restart_cmds.append(restart_cmd)
-    run_commands(restart_cmds, capture_output=not debug)
+    run_commands(restart_cmds, dry_run=dry_run, capture_output=not debug)

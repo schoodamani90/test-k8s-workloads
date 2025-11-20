@@ -166,6 +166,7 @@ SCENARIOS = [
         name="TSC1",
         description="TSC soft preference over a range of replicas",
         mechanism=Mechanism.TOPOLOGY_SPREAD,
+        workloads_per_nodepool=10,
         replicas=(2, 50),
         preference=Preference.SOFT
     ),
@@ -173,6 +174,7 @@ SCENARIOS = [
         name="TSC2",
         description="TSC hard preference over a range of replicas",
         mechanism=Mechanism.TOPOLOGY_SPREAD,
+        workloads_per_nodepool=10,
         replicas=(2, 50),
         preference=Preference.HARD
     )

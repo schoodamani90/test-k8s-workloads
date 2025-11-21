@@ -279,7 +279,7 @@ def generate_values(scenario: Scenario | str) -> None:
                         },
                         'maxSkew': 1,
                         'topologyKey': 'kubernetes.io/hostname',
-                        'whenUnsatisfiable': 'ScheduleAnyway' if scenario.preference.value == Preference.SOFT else 'DoNotSchedule'
+                        'whenUnsatisfiable': 'ScheduleAnyway' if scenario.preference == Preference.SOFT else 'DoNotSchedule'
                     }
                 ]
             else:

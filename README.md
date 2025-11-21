@@ -25,7 +25,7 @@ source setup.sh
 
 ```bash
 # Generate all predefined scenarios
-python scenarios.py
+python scripts/scenarios.py
 
 # This creates values files in build/values/ for each scenario
 ```
@@ -37,13 +37,13 @@ where the convention for release name is `np{nodepool_index}-w{workload_id}-r{re
 
 ```bash
 # Install a scenario (e.g., C2) in a namespace
-python experiment.py C2 --namespace my-namespace
+python scripts/experiment.py C2 --namespace my-namespace
 
 # Uninstall a scenario
-python experiment.py C2 --namespace my-namespace --action uninstall
+python scripts/experiment.py C2 --namespace my-namespace --action uninstall
 
 # Restart deployments in a scenario
-python experiment.py C2 --namespace my-namespace --action restart
+python scripts/experiment.py C2 --namespace my-namespace --action restart
 ```
 
 ## Framework Architecture
@@ -79,7 +79,7 @@ Scenario(
 ### 2. (Optional) Generate Values Files
 
 ```bash
-python scenarios.py
+python scripts/scenarios.py
 ```
 
 This creates values files in `build/values/MY_SCENARIO/` with different replica counts and configurations.
@@ -90,14 +90,17 @@ This is done automatically when running a scenario, but can be useful to do befo
 
 ```bash
 # Install the scenario in a namespace
-python experiment.py MY_SCENARIO --namespace my-namespace
+python scripts/experiment.py MY_SCENARIO --namespace my-namespace
 
 # Uninstall when done
-python experiment.py MY_SCENARIO --namespace my-namespace --action uninstall
+python scripts/experiment.py MY_SCENARIO --namespace my-namespace --action uninstall
 
 # Install with a custom prefix on all releases
-python experiment.py MY_SCENARIO --namespace my-namespace --release-prefix myusername
+python scripts/experiment.py MY_SCENARIO --namespace my-namespace --release-prefix myusername
 ```
+
+Debug any issues by running the above command with the `--debug` flag.
+
 
 ## Understanding Output Files
 
@@ -183,19 +186,19 @@ Each file contains:
 
 ```bash
 # Preview what would be installed without actually installing
-python experiment.py C2 --namespace my-namespace --dry-run
+python scripts/experiment.py C2 --namespace my-namespace --dry-run
 
 # Enable detailed logging
-python experiment.py C2 --namespace my-namespace --debug
+python scripts/experiment.py C2 --namespace my-namespace --debug
 
 # Render Helm templates locally without cluster access
-python experiment.py C2 --namespace my-namespace --render-locally
+python scripts/experiment.py C2 --namespace my-namespace --render-locally
 
 # Take measurements without installing workloads
-python experiment.py C2 --namespace my-namespace --action none
+python scripts/experiment.py C2 --namespace my-namespace --action none
 
 # Suppress console output visualizations
-python experiment.py C2 --namespace my-namespace --no-print
+python scripts/experiment.py C2 --namespace my-namespace --no-print
 ```
 
 ## Collecting Measurements from Existing Deployments
@@ -204,13 +207,13 @@ For analyzing real deployments (as opposed to synthetic test scenarios), use `co
 
 ```bash
 # Collect measurements from default namespaces on default cluster
-python collect.py
+python scripts/collect.py
 
 # Collect from specific namespaces
-python collect.py --namespaces namespace1 namespace2
+python scripts/collect.py --namespaces namespace1 namespace2
 
 # Collect from a different cluster
-python collect.py --cluster-context "arn:aws:eks:us-east-1:906324658258:cluster/prod-live-main"
+python scripts/collect.py --cluster-context "arn:aws:eks:us-east-1:906324658258:cluster/prod-live-main"
 ```
 
 ## Helm Chart Details

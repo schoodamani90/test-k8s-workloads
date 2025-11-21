@@ -10,3 +10,4 @@ tolerations:
   key: system-tests/dedicated
   operator: Equal
   value: workload-isolation
+topologySpreadConstraints: {}

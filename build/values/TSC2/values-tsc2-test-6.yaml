@@ -1,0 +1,15 @@
+affinity: {}
+nodeSelector: {}
+replicaCount: 34
+service:
+  port: 80
+  type: ClusterIP
+tolerations: []
+topologySpreadConstraints:
+- labelSelector:
+    matchLabels:
+      app.kubernetes.io/instance: tsc2-test-6
+      app.kubernetes.io/name: busybox-chart
+  maxSkew: 1
+  topologyKey: kubernetes.io/hostname
+  whenUnsatisfiable: DoNotSchedule

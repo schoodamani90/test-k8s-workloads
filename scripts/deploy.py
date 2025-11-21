@@ -3,7 +3,6 @@ import time
 
 from typing import Dict, Iterable
 from pathlib import Path
-
 from kubernetes import client, config
 
 from scenarios import Scenario

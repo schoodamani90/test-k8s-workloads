@@ -269,36 +269,19 @@ def generate_values(scenario: Scenario | str) -> None:
                         ]}}
 
             elif scenario.mechanism == Mechanism.TOPOLOGY_SPREAD:
-                if scenario.preference == Preference.SOFT:
-                    values['topologySpreadConstraints'] = [
-                        {
-                            'labelSelector': {
-                                'matchLabels': {
-                                    'app.kubernetes.io/name': 'busybox-chart',
-                                    'app.kubernetes.io/instance': release_name
-                                }
-                            },
-                            'maxSkew': 1,
-                            'topologyKey': 'kubernetes.io/hostname',
-                            'whenUnsatisfiable': 'ScheduleAnyway'
-                        }
-                    ]
-                elif scenario.preference == Preference.HARD:
-                    values['topologySpreadConstraints'] = [
-                        {
-                            'labelSelector': {
-                                'matchLabels': {
-                                    'app.kubernetes.io/name': 'busybox-chart',
-                                    'app.kubernetes.io/instance': release_name
-                                }
-                            },
-                            'maxSkew': 1,
-                            'topologyKey': 'kubernetes.io/hostname',
-                            'whenUnsatisfiable': 'DoNotSchedule'
-                        }
-                    ]
-                else:
-                    raise ValueError(f"Invalid preference: {scenario.preference.value}")
+                values['topologySpreadConstraints'] = [
+                    {
+                        'labelSelector': {
+                            'matchLabels': {
+                                'app.kubernetes.io/name': 'busybox-chart',
+                                'app.kubernetes.io/instance': release_name
+                            }
+                        },
+                        'maxSkew': 1,
+                        'topologyKey': 'kubernetes.io/hostname',
+                        'whenUnsatisfiable': 'ScheduleAnyway' if scenario.preference.value == Preference.SOFT else 'DoNotSchedule'
+                    }
+                ]
             else:
                 raise ValueError(f"Invalid mechanism: {scenario.mechanism.value}")
 

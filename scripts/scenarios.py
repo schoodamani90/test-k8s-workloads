@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import logging
 import yaml
 
@@ -194,6 +195,14 @@ def get_scenario(name: str) -> Scenario:
     raise ValueError(f"Scenario {name} not found")
 
 
+def parse_scenario(scenario_name: str) -> Scenario:
+    """Convert a scenario name string to a Scenario instance for use with argparse."""
+    try:
+        return get_scenario(scenario_name)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Scenario '{scenario_name}' not found")
+
+
 def generate_all_values() -> None:
     for scenario in SCENARIOS:
         generate_values(scenario)
@@ -291,7 +300,8 @@ def generate_values(scenario: Scenario | str) -> None:
         # Generate the ballast values file
         ballast_values = default_values.copy()
         ballast_values['replicaCount'] = scenario.control_pods
-        yaml.dump(ballast_values, open(f"{VALUES_DIR}/{scenario.name}/values-{scenario_name}-control-0.yaml", "w"))
+        release_name = f"{scenario_name}-control-0"
+        yaml.dump(ballast_values, open(f"{VALUES_DIR}/{scenario.name}/values-{release_name}.yaml", "w"))
 
 
 def determine_replica_counts_for_nodepool(scenario: Scenario, nodepool_index: int) -> List[int]:

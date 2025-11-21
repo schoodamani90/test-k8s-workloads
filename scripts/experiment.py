@@ -3,19 +3,18 @@
 import argparse
 from enum import Enum
 import logging
-import json
 import sys
 
 from datetime import datetime, timedelta
 from pathlib import Path
 import time
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 import deploy
 import scenarios
-import measurements
+import collect
 import utils
-from postprocess import PostprocessedData
+from postprocess import ExperimentResult, PostprocessedData
 
 DEFAULT_RELEASE_PREFIX = ""
 COSMOS_DEV_COSMOS_CONTEXT_NAME = "arn:aws:eks:us-east-1:843722649052:cluster/cosmos-dev-cosmos"
@@ -41,45 +40,14 @@ class Action(Enum):
         return self.value == other.value
 
 
-class ExperimentResult:
-    def __init__(self, args: argparse.Namespace, cluster: str, start_time: datetime, elapsed_time: timedelta,
-                 postprocessed_data: PostprocessedData, measurements_taken: List[measurements.Measurements],
-                 ):
-        self.args = args
-        self.cluster = cluster
-        self.start_time = start_time
-        self.elapsed_time = elapsed_time
-        self.postprocessed_data = postprocessed_data
-        self.measurements_taken = measurements_taken
-
-    def to_dict(self) -> dict:
-        dictionary = {
-            "args": vars(self.args),
-            "cluster": self.cluster,
-            "start_time": self.start_time.isoformat(timespec='seconds'),
-            "elapsed_time": str(self.elapsed_time),
-            "postprocessed_data": self.postprocessed_data.to_dict(),
-            "measurements_taken": [m.to_dict() for m in self.measurements_taken],
-        }
-        dictionary["args"]["scenario"] = self.args.scenario.name
-        dictionary["args"]["action"] = self.args.action.value
-        return dictionary
-
-    def __str__(self) -> str:
-        return json.dumps(self.to_dict())
-
-    def write_to_file(self, parent_path: Path):
-        parent_path.mkdir(parents=True, exist_ok=True)
-        file_path = parent_path / f"{self.args.scenario.name}-{self.start_time.isoformat(timespec='seconds')}.json"
-        logger.debug(f"Saving measurements to {file_path}")
-        with open(file_path, 'w') as f:
-            json.dump(self.to_dict(), f, indent=4)
-            logger.info(f"Experiment result written to {file_path}")
-
-
 def parse_args() -> Tuple[argparse.Namespace, Dict[str, Path]]:
     parser = argparse.ArgumentParser(description="Install a scenario")
-    parser.add_argument("scenario", type=str, help="The name of the scenario to install", choices=get_scenarios())
+    parser.add_argument(
+        "scenario",
+        type=scenarios.parse_scenario,
+        help="The name of the scenario to install",
+        choices=scenarios.SCENARIOS
+    )
 
     # General arguments
     parser.add_argument("--debug", "-d", action="store_true", help="Debug mode")
@@ -108,12 +76,9 @@ def parse_args() -> Tuple[argparse.Namespace, Dict[str, Path]]:
         # kubernetes is WAY too verbose in debug mode
         logging.getLogger("kubernetes").setLevel(logging.INFO)
 
-    try:
-        args.scenario = scenarios.get_scenario(args.scenario)
-        if not args.skip_value_generation:
-            scenarios.generate_values(args.scenario)
-    except ValueError:
-        parser.error(f"Scenario {args.scenario} not found")
+    # args.scenario is already a Scenario instance at this point
+    if not args.skip_value_generation:
+        scenarios.generate_values(args.scenario)
 
     # Sanity check that generation succeeded as expected
     scenario_dir = utils.VALUES_DIR / args.scenario.name
@@ -137,10 +102,6 @@ def parse_args() -> Tuple[argparse.Namespace, Dict[str, Path]]:
     return args, release_to_values_path
 
 
-def get_scenarios():
-    return [scenario.name for scenario in scenarios.SCENARIOS]
-
-
 def main():
     utils.setup_logging()
     args = None
@@ -158,7 +119,7 @@ def main():
 
         deploy.verify_cluster(COSMOS_DEV_COSMOS_CONTEXT_NAME)
 
-        measurements_pre = measurements.gather_cluster_measurements([args.namespace])
+        measurements_pre = collect.gather_cluster_measurements([args.namespace])
         if not args.no_print:
             logger.info("Pre-action measurements:")
             measurements_pre.print()
@@ -168,7 +129,7 @@ def main():
         logger.info(f"{args.action.value} took {elapsed_time}")
 
         # Gather post-install measurements
-        measurements_post = measurements.gather_cluster_measurements([args.namespace])
+        measurements_post = collect.gather_cluster_measurements([args.namespace])
         if not args.no_print:
             logger.info("Post-action measurements:")
             measurements_post.print()

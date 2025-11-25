@@ -1,0 +1,145 @@
+{
+    "args": {
+        "scenario": "P4.i",
+        "debug": false,
+        "no_print": false,
+        "dry_run": false,
+        "render_locally": false,
+        "skip_value_generation": false,
+        "namespace": "bw-exp",
+        "release_prefix": "",
+        "action": "none"
+    },
+    "cluster_name": "arn:aws:eks:us-east-1:843722649052:cluster/cosmos-dev-cosmos",
+    "start_time": "2025-11-17T21:36:14",
+    "elapsed_time": 3.3e-05,
+    "postprocessed_data": {
+        "scale_direction": "none",
+        "scale_amount": 0,
+        "scale_percentage": null,
+        "jain_fairness_index_mean": 0.666,
+        "jain_fairness_index_median": 0.666,
+        "coefficient_of_variation_mean": 0.781,
+        "coefficient_of_variation_median": 0.781,
+        "gini_coefficient_mean": 0.352,
+        "gini_coefficient_median": 0.352,
+        "node_skew_mean": 16,
+        "node_skew_median": 16.0,
+        "node_skew_max": 30,
+        "node_skew_percentage_mean": 0.82,
+        "node_skew_percentage_median": 0.8172043010752688,
+        "node_skew_percentage_max": 0.967741935483871,
+        "nosed_used_avg": 6,
+        "nosed_used_median": 6.0,
+        "nosed_used_max": 6,
+        "nosed_used_min": 6
+    },
+    "measurements_taken": [
+        {
+            "timestamp": "2025-11-17T21:36:14",
+            "cluster": {
+                "node_count": 15,
+                "eligible_node_count": 12
+            },
+            "deployments": {
+                "p4-i-control-0": {
+                    "name": "p4-i-control-0",
+                    "total_pods": 100,
+                    "pod_counts": [
+                        31,
+                        31,
+                        31,
+                        3,
+                        3,
+                        1
+                    ],
+                    "nodes_used": 6,
+                    "max_pods": 31,
+                    "min_pods": 1,
+                    "node_skew": 30,
+                    "node_skew_percentage": 0.967741935483871,
+                    "mean_pods": 16.667,
+                    "median_pods": 17.0,
+                    "coefficient_of_variation": 0.943,
+                    "gini_coefficient": 0.437,
+                    "jain_fairness_index": 0.574
+                },
+                "p4-i-test-0": {
+                    "name": "p4-i-test-0",
+                    "total_pods": 10,
+                    "pod_counts": [
+                        1,
+                        1,
+                        1,
+                        3,
+                        3,
+                        1
+                    ],
+                    "nodes_used": 6,
+                    "max_pods": 3,
+                    "min_pods": 1,
+                    "node_skew": 2,
+                    "node_skew_percentage": 0.6666666666666666,
+                    "mean_pods": 1.667,
+                    "median_pods": 1.0,
+                    "coefficient_of_variation": 0.62,
+                    "gini_coefficient": 0.267,
+                    "jain_fairness_index": 0.758
+                }
+            }
+        },
+        {
+            "timestamp": "2025-11-17T21:36:17",
+            "cluster": {
+                "node_count": 15,
+                "eligible_node_count": 12
+            },
+            "deployments": {
+                "p4-i-control-0": {
+                    "name": "p4-i-control-0",
+                    "total_pods": 100,
+                    "pod_counts": [
+                        31,
+                        31,
+                        31,
+                        3,
+                        3,
+                        1
+                    ],
+                    "nodes_used": 6,
+                    "max_pods": 31,
+                    "min_pods": 1,
+                    "node_skew": 30,
+                    "node_skew_percentage": 0.967741935483871,
+                    "mean_pods": 16.667,
+                    "median_pods": 17.0,
+                    "coefficient_of_variation": 0.943,
+                    "gini_coefficient": 0.437,
+                    "jain_fairness_index": 0.574
+                },
+                "p4-i-test-0": {
+                    "name": "p4-i-test-0",
+                    "total_pods": 10,
+                    "pod_counts": [
+                        1,
+                        1,
+                        1,
+                        3,
+                        3,
+                        1
+                    ],
+                    "nodes_used": 6,
+                    "max_pods": 3,
+                    "min_pods": 1,
+                    "node_skew": 2,
+                    "node_skew_percentage": 0.6666666666666666,
+                    "mean_pods": 1.667,
+                    "median_pods": 1.0,
+                    "coefficient_of_variation": 0.62,
+                    "gini_coefficient": 0.267,
+                    "jain_fairness_index": 0.758
+                }
+            }
+        }
+    ]
+}

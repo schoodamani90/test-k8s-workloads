@@ -1,0 +1,11 @@
+{
+    "args": {
+        "scenario": "P4.i",
+        "debug": false,
+        "no_print": false,
+        "dry_run": false,
+        "render_locally": false,
+        "skip_value_generation": false,
+        "namespace": "bw-exp",
+        "release_prefix": "",
+        "action": 
